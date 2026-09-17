@@ -50,7 +50,8 @@ uniform float uTimeCount;
 uniform float uTimePos;
 uniform float uTimeOpacity;
 uniform float uTimeFade;
-uniform float uTimeFullSteps;
+uniform float uTimeFull;
+uniform float uTimeCurve;
 uniform float uSharpTol;
 uniform float uWave;
 uniform float uWaveWidth;
@@ -148,15 +149,17 @@ vec3 timeSliceColor(vec3 p) {
 
 // Tidssnitten ligger på uTimePos + k / uTimeCount. Snittet som spelas är k = 0 och
 // har full styrka; varje steg därifrån dämpas med samma faktor.
+// Snitten med full styrka ligger utspridda över hela stacken: ett vid
+// uppspelningen och sedan var n:te snitt åt båda håll. Mellan dem sjunker en båge
+// ner till uTimeFade och stiger upp igen mot nästa topp.
 float sliceFade(vec3 p) {
   if (uTimeFade <= 0.001) return 1.0;
   float k = floor(abs(timeAt(p) - uTimePos) * uTimeCount + 0.5);
-  // Snitten närmast det som spelas behåller full styrka; uttoningen räknas
-  // först utanför den kärnan. pow(0.0, 0.0) är odefinierat i GLSL, så steg 0
-  // måste tas för sig, annars försvinner snittet vid full uttoning.
-  float d = max(0.0, k - uTimeFullSteps);
-  if (d < 0.5) return 1.0;
-  return pow(max(1.0 - uTimeFade, 0.0), d);
+  float spacing = max(1.0, floor(uTimeCount / max(uTimeFull, 1.0) + 0.5));
+  float toNearest = abs(k - spacing * floor(k / spacing + 0.5));
+  float t = clamp(toNearest / (spacing * 0.5), 0.0, 1.0);
+  float arc = pow(0.5 + 0.5 * cos(3.14159265 * t), uTimeCurve);
+  return 1.0 - uTimeFade * (1.0 - arc);
 }
 
 // Första snittplanet som strålen korsar i [tA, tB), annars -1.

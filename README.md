@@ -56,10 +56,13 @@ Allt körs lokalt i webbläsaren. Ingen fil laddas upp någonstans.
 
 **Antal** lägger ut flera tidssnitt med jämna mellanrum, som alla följer uppspelningen.
 
-**Snitt med full styrka** är hur många av dem närmast uppspelningen som behåller full
-opacitet — 1 är bara det som spelas, 3 är det plus grannen på var sida, och så vidare.
-**Uttoning därefter** bestämmer hur mycket svagare varje steg utanför kärnan är: samma
-faktor för varje steg, så 0 ger lika starka snitt hela vägen och 1 lämnar bara kärnan kvar.
+**Snitt med full styrka** är hur många av snitten som behåller full opacitet, utspridda jämnt
+över hela stacken: ett vid uppspelningen och sedan var n:te snitt åt båda håll. Med 50 snitt
+och 10 fulla hamnar topparna på steg 0, 5, 10 och så vidare.
+
+**Uttoning mellan dem** är hur djupt det sjunker mellan två toppar — 0 ger lika starka snitt
+hela vägen, 1 släcker dalarna helt. **Bågens form** ändrar kurvan däremellan: låga värden ger
+breda toppar som nästan möts, höga ger spetsiga toppar med tydliga mellanrum.
 
 ### Vågen
 
