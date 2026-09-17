@@ -37,6 +37,7 @@ Allt körs lokalt i webbläsaren. Ingen fil laddas upp någonstans.
 
 | Grupp | Vad det gör |
 | --- | --- |
+| **Sparade inställningar** | Namngivna uppsättningar av alla reglage. Spara, hämta tillbaka, ta bort — och lägg dem i en fil för att flytta dem mellan datorer eller webbläsare. |
 | **Volym** | Antal bildrutor och upplösning i 3D-texturen — fria tal, skriv vad du vill (2–512 bildrutor, 32–720 px). Raden under visar vad valet kostar i minne. Ändring kräver **Bygg om volym**. Här finns också lådans djup och tidsriktning. |
 | **Utseende** | Innehåll (bild/rörelse), blandning, densitet, hur mycket ytorna syns, ljusstyrka, mättnad, glasreflex, kantglöd, kantlinjer, renderingskvalitet och bakgrundsfärg. |
 | **Snitt** | Tidssnittet (den skarpa bilden) samt snitt i sidled (X) och höjdled (Y). Antalet styr hur många plan som läggs ut med jämna mellanrum; 0 stänger av dem. |
@@ -64,6 +65,12 @@ Hur bildrutorna längs en siktlinje vägs ihop:
 
 Den rörliga väggen som visar filmen är **Tidssnitt** under Snitt — kryssa ur den för att bara
 se innehållet i lådan.
+
+Vill du kunna komma tillbaka till ett läge du gillar: skriv ett namn i **Sparade
+inställningar** och tryck Spara. Uppsättningen hamnar i listan och ligger kvar i webbläsaren
+till nästa gång. **Till fil** laddar ned alla sparade uppsättningar som JSON och **Från fil**
+läser in dem igen — praktiskt om du rensar webbläsaren, byter dator eller vill dela en look
+med någon annan.
 
 **Återställ** uppe till höger nollställer alla reglage (två klick, så att en felklickning inte
 slår ut allt). Antal bildrutor och upplösning behålls, eftersom de kräver en ombyggnad.

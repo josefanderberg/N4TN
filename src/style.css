@@ -440,6 +440,37 @@ select {
   font-size: 12px;
 }
 
+.presets {
+  gap: 8px;
+}
+
+.preset-select,
+.preset-name {
+  width: 100%;
+  min-width: 0;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 5px 8px;
+}
+
+.preset-row {
+  display: flex;
+  gap: 6px;
+}
+
+.preset-row .btn {
+  flex: 1 1 auto;
+}
+
+.preset-row .preset-name {
+  flex: 1;
+}
+
+.preset-row .preset-name + .btn {
+  flex: 0 0 auto;
+}
+
 input[type='checkbox'] {
   accent-color: var(--accent);
   width: 14px;

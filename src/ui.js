@@ -123,6 +123,14 @@ export function buildPanel(root, sections, params, defaults, onChange) {
     return row;
   }
 
+  // Egen markup för det som inte passar som reglage, t.ex. sparade inställningar.
+  function customRow(item) {
+    const row = el('div', { class: 'row' });
+    const api = item.render(row) || {};
+    bindings.push({ item, row, sync: api.sync ?? (() => {}) });
+    return row;
+  }
+
   function noteRow(item) {
     const row = el('p', { class: 'row row-note', id: item.id });
     row.textContent = item.text ?? '';
@@ -138,6 +146,7 @@ export function buildPanel(root, sections, params, defaults, onChange) {
     color: colorRow,
     buttons: buttonsRow,
     note: noteRow,
+    custom: customRow,
   };
 
   for (const section of sections) {
@@ -153,7 +162,6 @@ export function buildPanel(root, sections, params, defaults, onChange) {
 
   function refresh() {
     for (const b of bindings) {
-      b.sync();
       const visible = b.item.visible ? b.item.visible(params) : true;
       b.row.hidden = !visible;
       const disabled = locked || (b.item.disabled ? b.item.disabled(params) : false);
@@ -161,6 +169,8 @@ export function buildPanel(root, sections, params, defaults, onChange) {
       for (const control of b.row.querySelectorAll('input, select, button')) {
         control.disabled = disabled;
       }
+      // Sist, så att egna kontroller kan styra sitt eget läge utan att skrivas över.
+      b.sync(disabled);
     }
   }
 

@@ -52,6 +52,7 @@ const DEFAULTS = {
 
 // Versionen bumpas när standardvärdena ändras, annars vinner gamla sparade inställningar.
 const STORAGE_KEY = 'n4tn.params.v3';
+const PRESET_KEY = 'n4tn.presets.v1';
 const DEMO_DURATION = 6;
 
 function loadParams() {
@@ -80,6 +81,35 @@ function saveParams() {
 }
 
 const params = loadParams();
+
+function loadPresets() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(PRESET_KEY) || '{}');
+    return saved && typeof saved === 'object' ? saved : {};
+  } catch {
+    return {};
+  }
+}
+
+function storePresets(presets) {
+  try {
+    localStorage.setItem(PRESET_KEY, JSON.stringify(presets));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// Bara kända nycklar med rätt typ tas in, så en gammal eller handredigerad fil
+// inte kan sätta appen i ett trasigt läge.
+function sanitize(values) {
+  const clean = {};
+  if (!values || typeof values !== 'object') return clean;
+  for (const key of Object.keys(DEFAULTS)) {
+    if (typeof values[key] === typeof DEFAULTS[key]) clean[key] = values[key];
+  }
+  return clean;
+}
 
 const $ = (id) => document.getElementById(id);
 const canvas = $('canvas');
@@ -674,6 +704,163 @@ async function exportVideo() {
   }
 }
 
+// --- Sparade inställningar ------------------------------------------------
+
+function make(tag, props) {
+  return Object.assign(document.createElement(tag), props);
+}
+
+function renderPresets(row) {
+  row.classList.add('presets');
+  let presets = loadPresets();
+
+  const select = make('select', { className: 'preset-select' });
+  const nameInput = make('input', {
+    type: 'text', className: 'preset-name', placeholder: 'Namn', maxLength: 60,
+  });
+  const saveBtn = make('button', { type: 'button', className: 'btn btn-small', textContent: 'Spara' });
+  const deleteBtn = make('button', { type: 'button', className: 'btn btn-small', textContent: 'Ta bort' });
+  const exportBtn = make('button', { type: 'button', className: 'btn btn-small', textContent: 'Till fil' });
+  const importBtn = make('button', { type: 'button', className: 'btn btn-small', textContent: 'Från fil' });
+  const fileInput = make('input', { type: 'file', accept: 'application/json,.json', hidden: true });
+  const status = make('p', { className: 'row-note' });
+
+  const sortedNames = () => Object.keys(presets).sort((a, b) => a.localeCompare(b, 'sv'));
+
+  let panelLocked = false;
+  const updateDelete = () => {
+    deleteBtn.disabled = panelLocked || !select.value;
+  };
+
+  function refreshList(selected = select.value) {
+    const names = sortedNames();
+    select.textContent = '';
+    select.append(make('option', {
+      value: '',
+      textContent: names.length ? '— välj sparad —' : 'Inget sparat ännu',
+    }));
+    for (const name of names) select.append(make('option', { value: name, textContent: name }));
+    select.value = names.includes(selected) ? selected : '';
+    saveBtn.textContent = presets[nameInput.value.trim()] ? 'Skriv över' : 'Spara';
+    updateDelete();
+  }
+
+  function persist(message) {
+    status.textContent = storePresets(presets)
+      ? message
+      : 'Kunde inte spara — webbläsaren tillåter inte lagring här.';
+  }
+
+  let armTimer = 0;
+  function armDelete(armed) {
+    clearTimeout(armTimer);
+    deleteBtn.classList.toggle('is-armed', armed);
+    deleteBtn.textContent = armed ? 'Säker?' : 'Ta bort';
+    if (armed) armTimer = setTimeout(() => armDelete(false), 3000);
+  }
+
+  select.addEventListener('change', () => {
+    armDelete(false);
+    updateDelete();
+    const name = select.value;
+    if (!name) return;
+    nameInput.value = name;
+    applyValues(presets[name]);
+    status.textContent = `Hämtade "${name}".`;
+    refreshList(name);
+  });
+
+  nameInput.addEventListener('input', () => {
+    saveBtn.textContent = presets[nameInput.value.trim()] ? 'Skriv över' : 'Spara';
+  });
+
+  saveBtn.addEventListener('click', () => {
+    const name = nameInput.value.trim() || `Inställning ${sortedNames().length + 1}`;
+    presets[name] = { ...params };
+    nameInput.value = name;
+    refreshList(name);
+    persist(`Sparade "${name}".`);
+  });
+
+  deleteBtn.addEventListener('click', () => {
+    const name = select.value;
+    if (!name) {
+      status.textContent = 'Välj en sparad inställning i listan först.';
+      return;
+    }
+    if (!deleteBtn.classList.contains('is-armed')) {
+      armDelete(true);
+      return;
+    }
+    armDelete(false);
+    delete presets[name];
+    refreshList('');
+    persist(`Tog bort "${name}".`);
+  });
+
+  exportBtn.addEventListener('click', () => {
+    const data = {
+      app: 'n4tn-tidskub',
+      version: 1,
+      savedAt: new Date().toISOString(),
+      presets,
+      current: { ...params },
+    };
+    downloadBlob(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }),
+      'n4tn-installningar.json');
+    status.textContent = 'Laddade ned inställningarna som fil.';
+  });
+
+  importBtn.addEventListener('click', () => fileInput.click());
+  fileInput.addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    e.target.value = '';
+    if (!file) return;
+    try {
+      const data = JSON.parse(await file.text());
+      // Filen kan vara en hel export eller en enda uppsättning inställningar.
+      const incoming = data?.presets && typeof data.presets === 'object'
+        ? data.presets
+        : { [file.name.replace(/\.json$/i, '')]: data };
+      let added = 0;
+      for (const [name, values] of Object.entries(incoming)) {
+        const clean = sanitize(values);
+        if (!Object.keys(clean).length) continue;
+        let unique = name;
+        for (let n = 2; presets[unique]; n++) unique = `${name} (${n})`;
+        presets[unique] = clean;
+        added++;
+      }
+      if (!added) {
+        status.textContent = 'Filen innehöll inga inställningar som gick att läsa.';
+        return;
+      }
+      refreshList();
+      persist(`Läste in ${added} inställning${added === 1 ? '' : 'ar'} från filen.`);
+    } catch {
+      status.textContent = 'Filen gick inte att läsa som inställningar.';
+    }
+  });
+
+  row.append(
+    select,
+    make('div', { className: 'preset-row' }, ),
+    make('div', { className: 'preset-row' }, ),
+    status,
+    fileInput,
+  );
+  row.children[1].append(nameInput, saveBtn);
+  row.children[2].append(deleteBtn, exportBtn, importBtn);
+
+  refreshList();
+  return {
+    sync: (disabled) => {
+      panelLocked = disabled;
+      updateDelete();
+    },
+  };
+}
+
 // --- Panel ---------------------------------------------------------------
 
 const noVideo = () => !state.hasVideo;
@@ -683,6 +870,10 @@ const volumeUpToDate = () =>
   state.builtWith.size === params.size;
 
 const sections = [
+  {
+    title: 'Sparade inställningar',
+    items: [{ type: 'custom', render: renderPresets }],
+  },
   {
     title: 'Volym',
     items: [
@@ -802,11 +993,16 @@ function updateVolumeInfo() {
   if (note) note.textContent = volumeEstimate();
 }
 
+function applyValues(values) {
+  Object.assign(params, sanitize(values));
+  onParamChange('*');
+}
+
 function onParamChange(key) {
   if (key === 'frames' || key === 'size' || key === '*') updateVolumeInfo();
   if (key === 'depth' || key === '*') volume.setDepth(params.depth);
   if (key === 'format' || key === '*') layout();
-  if (key === 'motion') anchorMotion();
+  if (key === 'motion' || key === '*') anchorMotion();
   saveParams();
   panel.refresh();
 }
