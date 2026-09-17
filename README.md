@@ -40,7 +40,7 @@ Allt körs lokalt i webbläsaren. Ingen fil laddas upp någonstans.
 | **Sparade inställningar** | Namngivna uppsättningar av alla reglage. Spara, hämta tillbaka, ta bort — lägg dem i en fil, eller dela dem som en kort kod. |
 | **Volym** | Antal bildrutor och upplösning i 3D-texturen — fria tal, skriv vad du vill (2–512 bildrutor, 32–720 px). Raden under visar vad valet kostar i minne. Ändring kräver **Bygg om volym**. Här finns också lådans djup och tidsriktning. |
 | **Utseende** | Innehåll (bild/rörelse), blandning, densitet, hur mycket ytorna syns, ljusstyrka, mättnad, glasreflex, kantglöd, kantlinjer, renderingskvalitet och bakgrundsfärg. |
-| **Snitt** | Tidssnittet (den skarpa bilden) samt snitt i sidled (X) och höjdled (Y). Antalet styr hur många plan som läggs ut med jämna mellanrum; 0 stänger av dem. |
+| **Snitt** | Tre grupper med egna reglage: djupled (tiden), sidled (X) och höjdled (Y). Varje grupp har antal, position, automatiskt svep och egen opacitet. Antalet styr hur många plan som läggs ut med jämna mellanrum; 0 stänger av riktningen. |
 | **Kamera** | Fri musstyrning, pendel eller rotation, hastighet och brännvidd. |
 | **Export** | Bildformat (1:1, 4:5, 9:16, 16:9), bildfrekvens, kvalitet, antal varv och om ljudet ska med. |
 
@@ -71,8 +71,9 @@ Hur bildrutorna längs en siktlinje vägs ihop:
 * **Genomskinlig** — vanlig genomskinlighet framifrån och bakåt. Lugnast, men mitten blir
   ungefär medelvärdet av klippet och därmed mörkare.
 
-Den rörliga väggen som visar filmen är **Tidssnitt** under Snitt — kryssa ur den för att bara
-se innehållet i lådan.
+Den rörliga väggen som visar filmen är **Visa tidssnitt** under Snitt — kryssa ur den för att
+bara se innehållet i lådan. Svepen i sidled och höjdled går i olika takt, så att de två snitten
+inte rör sig i lås med varandra.
 
 Vill du kunna komma tillbaka till ett läge du gillar: skriv ett namn i **Sparade
 inställningar** och tryck Spara. Uppsättningen hamnar i listan och ligger kvar i webbläsaren

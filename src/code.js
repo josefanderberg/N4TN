@@ -11,7 +11,8 @@ const BASE = {
   lumWeight: 0.4, wave: 0.7, waveWidth: 0.3, shellFront: 0.75, shellBack: 0.6, brightness: 1.1, saturation: 0.9,
   glass: 1, edgeGlow: 0.6, lines: 0.3, steps: 200, depth: 1.3, flipTime: false,
   timeOn: true, timeCount: 1, timeFollow: true, timePos: 0, timeOpacity: 0.92,
-  xCount: 0, xPos: 0.5, xSweep: false, yCount: 0, yPos: 0.5, axisOpacity: 0.3,
+  xCount: 0, xPos: 0.5, xSweep: false, xOpacity: 0.3,
+  yCount: 0, yPos: 0.5, ySweep: false, yOpacity: 0.3, axisOpacity: 0.3,
   motion: 'free', motionSpeed: 0.5, fov: 32, background: '#000000',
   format: '1080x1080', fps: 30, bitrate: 16, audio: true, loops: 1,
 };
@@ -47,6 +48,7 @@ const FIELDS = [
   ['xSweep', 'b'],
   ['yCount', 'i1'],
   ['yPos', 'f2', 0, 1, 0.001],
+  // Utgått: låg förr på både X och Y. Platsen behålls så gamla koder går att läsa.
   ['axisOpacity', 'f1', 0, 1, 0.01],
   ['motion', 'e', ['free', 'pendulum', 'rotate']],
   ['motionSpeed', 'f1', 0.05, 2, 0.01],
@@ -59,6 +61,9 @@ const FIELDS = [
   ['loops', 'i1'],
   ['wave', 'f1', 0, 1, 0.01],
   ['waveWidth', 'f1', 0.02, 1, 0.01],
+  ['xOpacity', 'f1', 0, 1, 0.01],
+  ['ySweep', 'b'],
+  ['yOpacity', 'f1', 0, 1, 0.01],
 ];
 
 // Crockford base32: inga tecken som går att blanda ihop (I, L, O, U saknas),
@@ -214,6 +219,13 @@ export function decodeSettings(code) {
     if (!read) return null;
     values[key] = read[0];
     at = read[1];
+  }
+
+  // Koder från när X och Y delade opacitet: låt värdet gälla båda.
+  if (values.axisOpacity !== undefined) {
+    if (values.xOpacity === undefined) values.xOpacity = values.axisOpacity;
+    if (values.yOpacity === undefined) values.yOpacity = values.axisOpacity;
+    delete values.axisOpacity;
   }
   return values;
 }

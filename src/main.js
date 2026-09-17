@@ -37,9 +37,11 @@ const DEFAULTS = {
   xCount: 0,
   xPos: 0.5,
   xSweep: false,
+  xOpacity: 0.3,
   yCount: 0,
   yPos: 0.5,
-  axisOpacity: 0.3,
+  ySweep: false,
+  yOpacity: 0.3,
 
   motion: 'free',
   motionSpeed: 0.5,
@@ -296,7 +298,7 @@ function tick(timestamp) {
   timer.update(timestamp);
   const dt = Math.min(timer.getDelta(), 0.1);
   if (!state.hasVideo) state.demoTime += dt;
-  if (params.xSweep) state.sweepTime += dt * 0.5;
+  if (params.xSweep || params.ySweep) state.sweepTime += dt * 0.5;
 
   updateCamera(dt);
 
@@ -305,6 +307,10 @@ function tick(timestamp) {
   frameParams.xPosEffective = params.xSweep
     ? 0.5 + 0.45 * Math.sin(state.sweepTime)
     : params.xPos;
+  // Egen takt för höjdleden, annars rör sig de två snitten i lås med varandra.
+  frameParams.yPosEffective = params.ySweep
+    ? 0.5 + 0.45 * Math.sin(state.sweepTime * 0.73 + 1.1)
+    : params.yPos;
   volume.update(camera, frameParams);
 
   renderer.setClearColor(params.background);
@@ -960,23 +966,32 @@ const sections = [
   {
     title: 'Snitt',
     items: [
-      { type: 'checkbox', key: 'timeOn', label: 'Tidssnitt (följer klippet)' },
-      { type: 'range', key: 'timeCount', label: 'Antal i djupled', min: 1, max: 64, step: 1,
+      { type: 'heading', label: 'Djupled · tiden' },
+      { type: 'checkbox', key: 'timeOn', label: 'Visa tidssnitt' },
+      { type: 'range', key: 'timeCount', label: 'Antal', min: 1, max: 64, step: 1,
         visible: (p) => p.timeOn },
-      { type: 'checkbox', key: 'timeFollow', label: 'Följ uppspelningen', visible: (p) => p.timeOn },
-      { type: 'range', key: 'timePos', label: 'Tidsposition', min: 0, max: 1, step: 0.001,
+      { type: 'checkbox', key: 'timeFollow', label: 'Följ uppspelningen',
+        visible: (p) => p.timeOn },
+      { type: 'range', key: 'timePos', label: 'Position', min: 0, max: 1, step: 0.001,
         visible: (p) => p.timeOn && !p.timeFollow },
       { type: 'range', key: 'timeOpacity', label: 'Opacitet', min: 0, max: 1, step: 0.01,
         visible: (p) => p.timeOn },
-      { type: 'range', key: 'xCount', label: 'Antal snitt i sidled (X)', min: 0, max: 64, step: 1 },
+
+      { type: 'heading', label: 'Sidled · X' },
+      { type: 'range', key: 'xCount', label: 'Antal', min: 0, max: 64, step: 1 },
       { type: 'checkbox', key: 'xSweep', label: 'Svep automatiskt', visible: (p) => p.xCount >= 1 },
-      { type: 'range', key: 'xPos', label: 'X-position', min: 0, max: 1, step: 0.001,
+      { type: 'range', key: 'xPos', label: 'Position', min: 0, max: 1, step: 0.001,
         visible: (p) => p.xCount >= 1 && !p.xSweep },
-      { type: 'range', key: 'yCount', label: 'Antal snitt i höjdled (Y)', min: 0, max: 64, step: 1 },
-      { type: 'range', key: 'yPos', label: 'Y-position', min: 0, max: 1, step: 0.001,
+      { type: 'range', key: 'xOpacity', label: 'Opacitet', min: 0, max: 1, step: 0.01,
+        visible: (p) => p.xCount >= 1 },
+
+      { type: 'heading', label: 'Höjdled · Y' },
+      { type: 'range', key: 'yCount', label: 'Antal', min: 0, max: 64, step: 1 },
+      { type: 'checkbox', key: 'ySweep', label: 'Svep automatiskt', visible: (p) => p.yCount >= 1 },
+      { type: 'range', key: 'yPos', label: 'Position', min: 0, max: 1, step: 0.001,
+        visible: (p) => p.yCount >= 1 && !p.ySweep },
+      { type: 'range', key: 'yOpacity', label: 'Opacitet', min: 0, max: 1, step: 0.01,
         visible: (p) => p.yCount >= 1 },
-      { type: 'range', key: 'axisOpacity', label: 'Opacitet X/Y', min: 0, max: 1, step: 0.01,
-        visible: (p) => p.xCount >= 1 || p.yCount >= 1 },
     ],
   },
   {

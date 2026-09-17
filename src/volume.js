@@ -109,9 +109,10 @@ export class VolumeBox {
       uWaveWidth: { value: 0.3 },
       uXCount: { value: 1 },
       uXPos: { value: 0.5 },
+      uXOpacity: { value: 0.3 },
       uYCount: { value: 0 },
       uYPos: { value: 0.5 },
-      uAxisOpacity: { value: 0.3 },
+      uYOpacity: { value: 0.3 },
     };
 
     this.material = new THREE.ShaderMaterial({
@@ -209,8 +210,9 @@ export class VolumeBox {
     u.uXCount.value = p.xCount;
     u.uXPos.value = p.xPosEffective;
     u.uYCount.value = p.yCount;
-    u.uYPos.value = p.yPos;
-    u.uAxisOpacity.value = p.axisOpacity;
+    u.uXOpacity.value = p.xOpacity;
+    u.uYPos.value = p.yPosEffective;
+    u.uYOpacity.value = p.yOpacity;
 
     this.group.updateMatrixWorld();
     _camLocal.copy(camera.position);
@@ -219,7 +221,7 @@ export class VolumeBox {
 
     const dir = p.flipTime ? -1 : 1;
     this.slices[0].update(planeCoords(p.xPosEffective - 0.5, p.xCount));
-    this.slices[1].update(planeCoords(p.yPos - 0.5, p.yCount));
+    this.slices[1].update(planeCoords(p.yPosEffective - 0.5, p.yCount));
     this.slices[2].update(
       planeCoords((0.5 - p.timePosEffective) * dir, p.timeOn ? p.timeCount : 0),
     );

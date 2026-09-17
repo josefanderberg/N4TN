@@ -434,6 +434,23 @@ select {
   flex: 1;
 }
 
+.row-heading {
+  margin: 6px 0 0;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+  color: var(--text-dim);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.sec-body > .row-heading:first-child {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: none;
+}
+
 .row-note {
   margin: 0;
   color: var(--text-faint);

@@ -55,8 +55,9 @@ uniform float uWaveWidth;
 uniform float uXCount;
 uniform float uXPos;
 uniform float uYCount;
+uniform float uXOpacity;
 uniform float uYPos;
-uniform float uAxisOpacity;
+uniform float uYOpacity;
 
 #define MAX_STEPS 640
 #define MAX_SLICES_PER_STEP 6
@@ -216,7 +217,7 @@ void main() {
       ts = nextSlice(ts, tEnd, aX, bX);
       if (ts < 0.0) break;
       vec3 p = vOrigin + rd * ts;
-      over(col, acc, grade(sampleVol(p)), uAxisOpacity * filledAt(p) * waveAt(p));
+      over(col, acc, grade(sampleVol(p)), uXOpacity * filledAt(p) * waveAt(p));
       ts += 1e-6;
     }
     ts = tPrev;
@@ -224,7 +225,7 @@ void main() {
       ts = nextSlice(ts, tEnd, aY, bY);
       if (ts < 0.0) break;
       vec3 p = vOrigin + rd * ts;
-      over(col, acc, grade(sampleVol(p)), uAxisOpacity * filledAt(p) * waveAt(p));
+      over(col, acc, grade(sampleVol(p)), uYOpacity * filledAt(p) * waveAt(p));
       ts += 1e-6;
     }
 

@@ -131,6 +131,12 @@ export function buildPanel(root, sections, params, defaults, onChange) {
     return row;
   }
 
+  function headingRow(item) {
+    const row = el('p', { class: 'row row-heading' }, item.label);
+    bindings.push({ item, row, sync: () => {} });
+    return row;
+  }
+
   function noteRow(item) {
     const row = el('p', { class: 'row row-note', id: item.id });
     row.textContent = item.text ?? '';
@@ -147,6 +153,7 @@ export function buildPanel(root, sections, params, defaults, onChange) {
     buttons: buttonsRow,
     note: noteRow,
     custom: customRow,
+    heading: headingRow,
   };
 
   for (const section of sections) {
