@@ -52,6 +52,13 @@ Allt körs lokalt i webbläsaren. Ingen fil laddas upp någonstans.
   **Rörelsekänslighet** styr hur mycket små rörelser förstärks.
 * **Bild** — råa bildrutor. Ger den lugnare, rökiga looken där lådans ytor dominerar.
 
+### Snitten i djupled
+
+**Antal** lägger ut flera tidssnitt med jämna mellanrum, som alla följer uppspelningen.
+**Uttoning mot grannarna** bestämmer hur mycket svagare varje steg från det som spelas är:
+snittet vid uppspelningen är alltid 1, och varje granne därifrån dämpas med samma faktor.
+0 ger lika starka snitt, 1 lämnar bara det som spelas kvar.
+
 ### Vågen
 
 **Våg kring bildrutan som spelas** låter bildrutorna närmast uppspelningen synas starkast och

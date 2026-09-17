@@ -49,6 +49,7 @@ uniform float uEdgeGlow;
 uniform float uTimeCount;
 uniform float uTimePos;
 uniform float uTimeOpacity;
+uniform float uTimeFade;
 uniform float uSharpTol;
 uniform float uWave;
 uniform float uWaveWidth;
@@ -144,6 +145,17 @@ vec3 timeSliceColor(vec3 p) {
   return sampleVol(p);
 }
 
+// Tidssnitten ligger på uTimePos + k / uTimeCount. Snittet som spelas är k = 0 och
+// har full styrka; varje steg därifrån dämpas med samma faktor.
+float sliceFade(vec3 p) {
+  if (uTimeFade <= 0.001) return 1.0;
+  float k = floor(abs(timeAt(p) - uTimePos) * uTimeCount + 0.5);
+  // Snittet som spelas är alltid 1. pow(0.0, 0.0) är odefinierat i GLSL, så
+  // det fallet måste tas här, annars försvinner det vid full uttoning.
+  if (k < 0.5) return 1.0;
+  return pow(max(1.0 - uTimeFade, 0.0), k);
+}
+
 // Första snittplanet som strålen korsar i [tA, tB), annars -1.
 // Planen ligger på t = A + k * B för heltal k, så det räcker med att avrunda uppåt.
 float nextSlice(float tA, float tB, float A, float B) {
@@ -211,7 +223,7 @@ void main() {
       ts = nextSlice(ts, tEnd, aT, bT);
       if (ts < 0.0) break;
       vec3 p = vOrigin + rd * ts;
-      over(col, acc, grade(timeSliceColor(p)), uTimeOpacity * filledAt(p) * waveAt(p));
+      over(col, acc, grade(timeSliceColor(p)), uTimeOpacity * sliceFade(p) * filledAt(p) * waveAt(p));
       ts += 1e-6;
     }
     ts = tPrev;

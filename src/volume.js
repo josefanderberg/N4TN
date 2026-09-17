@@ -104,6 +104,7 @@ export class VolumeBox {
       uTimeCount: { value: 1 },
       uTimePos: { value: 0 },
       uTimeOpacity: { value: 0.92 },
+      uTimeFade: { value: 0.4 },
       uSharpTol: { value: 0.004 },
       uWave: { value: 0.7 },
       uWaveWidth: { value: 0.3 },
@@ -205,6 +206,7 @@ export class VolumeBox {
     u.uTimeCount.value = p.timeOn ? p.timeCount : 0;
     u.uTimePos.value = p.timePosEffective;
     u.uTimeOpacity.value = p.timeOpacity;
+    u.uTimeFade.value = p.timeFade;
     u.uWave.value = p.wave;
     u.uWaveWidth.value = p.waveWidth;
     u.uXCount.value = p.xCount;
