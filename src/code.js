@@ -2,12 +2,16 @@
 // och inte har någon server som kan lagra dem. Bara värden som skiljer sig från
 // referensen nedan skrivs med, vilket håller koden kort.
 
-export const CODE_VERSION = 2;
+export const CODE_VERSION = 3;
 
 // Fält som betydde något annat i en äldre kodversion. Nyckeln är versionen,
 // värdet är fältets dåvarande beskrivning.
 const LEGACY = {
-  1: { wave: ['wave', 'f1', 0, 1, 0.01] },
+  1: {
+    wave: ['wave', 'f1', 0, 1, 0.01],
+    depth: ['depth', 'f1', 0.2, 4, 0.05],
+  },
+  2: { depth: ['depth', 'f1', 0.2, 4, 0.05] },
 };
 
 // Referensvärden som koden räknar skillnad mot. De är FRYSTA: ändras appens
@@ -42,7 +46,7 @@ const FIELDS = [
   ['edgeGlow', 'f1', 0, 2, 0.01],
   ['lines', 'f1', 0, 1, 0.01],
   ['steps', 'i2'],
-  ['depth', 'f1', 0.2, 4, 0.05],
+  ['depth', 'f1', 0.2, 10, 0.05],
   ['flipTime', 'b'],
   ['timeOn', 'b'],
   ['timeCount', 'i1'],

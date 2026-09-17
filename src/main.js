@@ -907,7 +907,7 @@ const sections = [
       { type: 'buttons', buttons: [
         { label: 'Bygg om volym', id: 'rebuild-btn', action: () => buildVolume() },
       ], disabled: () => noVideo() || state.building || volumeUpToDate() },
-      { type: 'range', key: 'depth', label: 'Djup (tid)', min: 0.2, max: 4, step: 0.05 },
+      { type: 'range', key: 'depth', label: 'Djup (tid)', min: 0.2, max: 10, step: 0.05 },
       { type: 'checkbox', key: 'flipTime', label: 'Vänd tidsriktning' },
     ],
   },
