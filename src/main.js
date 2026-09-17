@@ -5,6 +5,7 @@ import { VolumeBox } from './volume.js';
 import { CancelledError, extractFrames, makeDemoVolume } from './frames.js';
 import { buildPanel } from './ui.js';
 import { CanvasRecorder, downloadBlob, pickMimeType } from './recorder.js';
+import { decodeSettings, encodeSettings } from './code.js';
 
 const DEFAULTS = {
   frames: 144,
@@ -15,6 +16,8 @@ const DEFAULTS = {
   blend: 1,
   density: 2.6,
   lumWeight: 0.4,
+  wave: 0.7,
+  waveWidth: 0.3,
   shellFront: 0.75,
   shellBack: 0.6,
   brightness: 1.1,
@@ -723,6 +726,13 @@ function renderPresets(row) {
   const exportBtn = make('button', { type: 'button', className: 'btn btn-small', textContent: 'Till fil' });
   const importBtn = make('button', { type: 'button', className: 'btn btn-small', textContent: 'Från fil' });
   const fileInput = make('input', { type: 'file', accept: 'application/json,.json', hidden: true });
+  const codeInput = make('input', {
+    type: 'text', className: 'preset-name preset-code', placeholder: 'Kod', spellcheck: false,
+  });
+  const openBtn = make('button', { type: 'button', className: 'btn btn-small', textContent: 'Öppna' });
+  const shareBtn = make('button', {
+    type: 'button', className: 'btn btn-small', textContent: 'Skapa kod att dela',
+  });
   const status = make('p', { className: 'row-note' });
 
   const sortedNames = () => Object.keys(presets).sort((a, b) => a.localeCompare(b, 'sv'));
@@ -842,15 +852,47 @@ function renderPresets(row) {
     }
   });
 
+  shareBtn.addEventListener('click', async () => {
+    const code = encodeSettings(params);
+    codeInput.value = code;
+    codeInput.select();
+    const link = `${location.origin}${location.pathname}#k=${code}`;
+    try {
+      await navigator.clipboard.writeText(link);
+      status.textContent = `Kod: ${code} — länken är kopierad.`;
+    } catch {
+      status.textContent = `Kod: ${code} — kopiera den härifrån.`;
+    }
+  });
+
+  function openCode() {
+    const values = decodeSettings(codeInput.value);
+    if (!values) {
+      status.textContent = 'Koden känns inte igen. Kontrollera att hela koden kom med.';
+      return;
+    }
+    applyValues(values);
+    status.textContent = 'Öppnade inställningarna från koden.';
+  }
+
+  openBtn.addEventListener('click', openCode);
+  codeInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') openCode();
+  });
+
   row.append(
     select,
-    make('div', { className: 'preset-row' }, ),
-    make('div', { className: 'preset-row' }, ),
+    make('div', { className: 'preset-row' }),
+    make('div', { className: 'preset-row' }),
+    make('p', { className: 'preset-label', textContent: 'Dela med en kod' }),
+    make('div', { className: 'preset-row' }),
+    shareBtn,
     status,
     fileInput,
   );
   row.children[1].append(nameInput, saveBtn);
   row.children[2].append(deleteBtn, exportBtn, importBtn);
+  row.children[4].append(codeInput, openBtn);
 
   refreshList();
   return {
@@ -901,6 +943,9 @@ const sections = [
       { type: 'range', key: 'density', label: 'Densitet', min: 0, max: 10, step: 0.05,
         visible: (p) => p.blend !== 2 },
       { type: 'range', key: 'lumWeight', label: 'Ljusa partier tätare', min: 0, max: 1, step: 0.01 },
+      { type: 'range', key: 'wave', label: 'Våg kring bildrutan som spelas', min: 0, max: 1, step: 0.01 },
+      { type: 'range', key: 'waveWidth', label: 'Vågens längd', min: 0.02, max: 1, step: 0.01,
+        visible: (p) => p.wave > 0 },
       { type: 'range', key: 'shellFront', label: 'Yta fram', min: 0, max: 1, step: 0.01 },
       { type: 'range', key: 'shellBack', label: 'Yta bak', min: 0, max: 1, step: 0.01 },
       { type: 'range', key: 'brightness', label: 'Ljusstyrka', min: 0.2, max: 3, step: 0.01 },
@@ -1032,6 +1077,13 @@ resetBtn.addEventListener('click', () => {
 volume.setDepth(params.depth);
 applyMute();
 updateVolumeInfo();
+
+// En länk med #k=<kod> öppnar delade inställningar direkt.
+const sharedCode = location.hash.slice(1).replace(/^k=/, '');
+if (sharedCode) {
+  const shared = decodeSettings(sharedCode);
+  if (shared) applyValues(shared);
+}
 
 // ?src=url laddar en video direkt (bra för test och länkar).
 const srcParam = new URLSearchParams(location.search).get('src');

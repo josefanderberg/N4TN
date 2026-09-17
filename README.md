@@ -37,7 +37,7 @@ Allt körs lokalt i webbläsaren. Ingen fil laddas upp någonstans.
 
 | Grupp | Vad det gör |
 | --- | --- |
-| **Sparade inställningar** | Namngivna uppsättningar av alla reglage. Spara, hämta tillbaka, ta bort — och lägg dem i en fil för att flytta dem mellan datorer eller webbläsare. |
+| **Sparade inställningar** | Namngivna uppsättningar av alla reglage. Spara, hämta tillbaka, ta bort — lägg dem i en fil, eller dela dem som en kort kod. |
 | **Volym** | Antal bildrutor och upplösning i 3D-texturen — fria tal, skriv vad du vill (2–512 bildrutor, 32–720 px). Raden under visar vad valet kostar i minne. Ändring kräver **Bygg om volym**. Här finns också lådans djup och tidsriktning. |
 | **Utseende** | Innehåll (bild/rörelse), blandning, densitet, hur mycket ytorna syns, ljusstyrka, mättnad, glasreflex, kantglöd, kantlinjer, renderingskvalitet och bakgrundsfärg. |
 | **Snitt** | Tidssnittet (den skarpa bilden) samt snitt i sidled (X) och höjdled (Y). Antalet styr hur många plan som läggs ut med jämna mellanrum; 0 stänger av dem. |
@@ -51,6 +51,14 @@ Allt körs lokalt i webbläsaren. Ingen fil laddas upp någonstans.
   i bildläget blir mitten annars summan av allt och därmed en jämn gröt utan struktur.
   **Rörelsekänslighet** styr hur mycket små rörelser förstärks.
 * **Bild** — råa bildrutor. Ger den lugnare, rökiga looken där lådans ytor dominerar.
+
+### Vågen
+
+**Våg kring bildrutan som spelas** låter bildrutorna närmast uppspelningen synas starkast och
+tona ut åt båda håll, i stället för att hela klippet syns lika mycket hela tiden. **Vågens
+längd** är hur stor del av klippet som fortfarande syns tydligt: en kort våg ger ett smalt
+fönster som vandrar genom lådan, en lång ger en mjuk uttoning. Sätt styrkan till 0 för att
+visa hela klippet lika starkt.
 
 ### Blandning
 
@@ -71,6 +79,18 @@ inställningar** och tryck Spara. Uppsättningen hamnar i listan och ligger kvar
 till nästa gång. **Till fil** laddar ned alla sparade uppsättningar som JSON och **Från fil**
 läser in dem igen — praktiskt om du rensar webbläsaren, byter dator eller vill dela en look
 med någon annan.
+
+### Dela med en kod
+
+**Skapa kod att dela** packar dina inställningar till en kort kod, till exempel
+`042PN48W04F307RG30G2AP963B10`, och kopierar en länk till urklipp. Den som får koden skriver
+in den i fältet och trycker Öppna — eller klickar bara på länken. Inställningarna ligger i
+själva koden, så det behövs ingen server och inget konto.
+
+Koden innehåller bara det du ändrat från standard, vilket håller den kort: några ändringar ger
+runt 20–30 tecken. Den är okänslig för stora och små bokstäver, och mellanslag och bindestreck
+får du sätta hur du vill när du skriver av den. Tecken som lätt förväxlas (I, L, O, U) används
+inte, och en kod som blivit fel avvisas i stället för att ge ett halvt resultat.
 
 **Återställ** uppe till höger nollställer alla reglage (två klick, så att en felklickning inte
 slår ut allt). Antal bildrutor och upplösning behålls, eftersom de kräver en ombyggnad.
@@ -100,6 +120,9 @@ renderingen i bakgrundsflikar. Filen laddas ned som MP4 om webbläsaren stödjer
    Rörelseläget jämför två närliggande lager i volymen per sampling.
 4. `src/recorder.js` spelar in canvasen med `MediaRecorder` och lägger till ljudet från
    videon via Web Audio.
+5. `src/code.js` packar inställningarna till delningskoden: bara värden som skiljer sig från
+   en frusen referens skrivs med, ett fält i taget, och resultatet skrivs i Crockford base32
+   med en kontrollsiffra på slutet.
 
 ## Kända begränsningar
 

@@ -454,6 +454,21 @@ select {
   padding: 5px 8px;
 }
 
+.preset-label {
+  margin: 4px 0 0;
+  color: var(--text-dim);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  border-top: 1px solid var(--border);
+  padding-top: 10px;
+}
+
+.preset-code {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.06em;
+}
+
 .preset-row {
   display: flex;
   gap: 6px;
