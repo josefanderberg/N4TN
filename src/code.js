@@ -2,16 +2,25 @@
 // och inte har någon server som kan lagra dem. Bara värden som skiljer sig från
 // referensen nedan skrivs med, vilket håller koden kort.
 
-export const CODE_VERSION = 3;
+export const CODE_VERSION = 5;
 
 // Fält som betydde något annat i en äldre kodversion. Nyckeln är versionen,
 // värdet är fältets dåvarande beskrivning.
+const SMA_ANTAL = {
+  timeCount: ['timeCount', 'i1'],
+  xCount: ['xCount', 'i1'],
+  yCount: ['yCount', 'i1'],
+};
+
 const LEGACY = {
   1: {
     wave: ['wave', 'f1', 0, 1, 0.01],
     depth: ['depth', 'f1', 0.2, 4, 0.05],
+    ...SMA_ANTAL,
   },
-  2: { depth: ['depth', 'f1', 0.2, 4, 0.05] },
+  2: { depth: ['depth', 'f1', 0.2, 4, 0.05], ...SMA_ANTAL },
+  3: { depth: ['depth', 'f1', 0.2, 10, 0.05], ...SMA_ANTAL },
+  4: { depth: ['depth', 'f1', 0.2, 10, 0.05] },
 };
 
 // Referensvärden som koden räknar skillnad mot. De är FRYSTA: ändras appens
@@ -46,17 +55,17 @@ const FIELDS = [
   ['edgeGlow', 'f1', 0, 2, 0.01],
   ['lines', 'f1', 0, 1, 0.01],
   ['steps', 'i2'],
-  ['depth', 'f1', 0.2, 10, 0.05],
+  ['depth', 'f2', 0.2, 50, 0.05],
   ['flipTime', 'b'],
   ['timeOn', 'b'],
-  ['timeCount', 'i1'],
+  ['timeCount', 'i2'],
   ['timeFollow', 'b'],
   ['timePos', 'f2', 0, 1, 0.001],
   ['timeOpacity', 'f1', 0, 1, 0.01],
-  ['xCount', 'i1'],
+  ['xCount', 'i2'],
   ['xPos', 'f2', 0, 1, 0.001],
   ['xSweep', 'b'],
-  ['yCount', 'i1'],
+  ['yCount', 'i2'],
   ['yPos', 'f2', 0, 1, 0.001],
   // Utgått: låg förr på både X och Y. Platsen behålls så gamla koder går att läsa.
   ['axisOpacity', 'f1', 0, 1, 0.01],
@@ -230,8 +239,10 @@ export function decodeSettings(code) {
       continue;
     }
     if (marker & 128) return null;
-    if (at + sizeOf(type) > body.length) return null;
-    const read = readField(LEGACY[version]?.[key] ?? field, body, at);
+    // Äldre versioner kan ha haft en annan storlek på fältet; den gäller här.
+    const effective = LEGACY[version]?.[key] ?? field;
+    if (at + sizeOf(effective[1]) > body.length) return null;
+    const read = readField(effective, body, at);
     if (!read) return null;
     values[key] = read[0];
     at = read[1];

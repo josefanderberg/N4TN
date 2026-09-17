@@ -64,7 +64,7 @@ uniform float uYPos;
 uniform float uYOpacity;
 
 #define MAX_STEPS 640
-#define MAX_SLICES_PER_STEP 6
+#define MAX_SLICES_PER_STEP 12
 
 float luma(vec3 c) { return dot(c, vec3(0.2126, 0.7152, 0.0722)); }
 

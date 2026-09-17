@@ -149,13 +149,13 @@ const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 
 const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(params.fov, 1, 0.01, 100);
+const camera = new THREE.PerspectiveCamera(params.fov, 1, 0.01, 2000);
 const controls = new OrbitControls(camera, canvas);
 controls.enableDamping = true;
 controls.dampingFactor = 0.08;
 controls.enablePan = false;
 controls.minDistance = 0.8;
-controls.maxDistance = 20;
+controls.maxDistance = 400;
 
 const volume = new VolumeBox();
 scene.add(volume.group);
@@ -907,7 +907,7 @@ const sections = [
       { type: 'buttons', buttons: [
         { label: 'Bygg om volym', id: 'rebuild-btn', action: () => buildVolume() },
       ], disabled: () => noVideo() || state.building || volumeUpToDate() },
-      { type: 'range', key: 'depth', label: 'Djup (tid)', min: 0.2, max: 10, step: 0.05 },
+      { type: 'range', key: 'depth', label: 'Djup (tid)', min: 0.2, max: 50, step: 0.05 },
       { type: 'checkbox', key: 'flipTime', label: 'Vänd tidsriktning' },
     ],
   },
@@ -954,7 +954,7 @@ const sections = [
 
       { type: 'checkbox', key: 'timeOn', label: 'Visa tidssnitt',
         visible: () => ui.sliceTab === 'time' },
-      { type: 'range', key: 'timeCount', label: 'Antal', min: 1, max: 64, step: 1,
+      { type: 'range', key: 'timeCount', label: 'Antal', min: 1, max: 256, step: 1,
         visible: () => ui.sliceTab === 'time', disabled: (p) => !p.timeOn },
       { type: 'checkbox', key: 'timeFollow', label: 'Följ uppspelningen',
         visible: () => ui.sliceTab === 'time', disabled: (p) => !p.timeOn },
@@ -969,7 +969,7 @@ const sections = [
       { type: 'range', key: 'timeCurve', label: 'Bågens form', min: 0.2, max: 5, step: 0.05,
         visible: () => ui.sliceTab === 'time', disabled: (p) => !p.timeOn || p.timeCount < 2 || p.timeFade <= 0 },
 
-      { type: 'range', key: 'xCount', label: 'Antal', min: 0, max: 64, step: 1,
+      { type: 'range', key: 'xCount', label: 'Antal', min: 0, max: 256, step: 1,
         visible: () => ui.sliceTab === 'x' },
       { type: 'checkbox', key: 'xSweep', label: 'Svep automatiskt',
         visible: () => ui.sliceTab === 'x', disabled: (p) => p.xCount < 1 },
@@ -978,7 +978,7 @@ const sections = [
       { type: 'range', key: 'xOpacity', label: 'Opacitet', min: 0, max: 1, step: 0.01,
         visible: () => ui.sliceTab === 'x', disabled: (p) => p.xCount < 1 },
 
-      { type: 'range', key: 'yCount', label: 'Antal', min: 0, max: 64, step: 1,
+      { type: 'range', key: 'yCount', label: 'Antal', min: 0, max: 256, step: 1,
         visible: () => ui.sliceTab === 'y' },
       { type: 'checkbox', key: 'ySweep', label: 'Svep automatiskt',
         visible: () => ui.sliceTab === 'y', disabled: (p) => p.yCount < 1 },
