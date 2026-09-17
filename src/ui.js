@@ -169,8 +169,10 @@ export function buildPanel(root, sections, params, defaults, onChange) {
 
   for (const section of sections) {
     const details = el('details', { class: 'sec', open: section.open !== false });
-    details.append(el('summary', {}, section.title));
+    if (section.accent) details.style.setProperty('--sec-accent', section.accent);
+    details.append(el('summary', {}, el('span', { class: 'sec-title' }, section.title)));
     const body = el('div', { class: 'sec-body' });
+    if (section.hint) body.append(el('p', { class: 'sec-hint' }, section.hint));
     for (const item of section.items) body.append(builders[item.type](item));
     details.append(body);
     root.append(details);

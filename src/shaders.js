@@ -55,6 +55,7 @@ uniform float uTimeCurve;
 uniform float uSharpTol;
 uniform float uWave;
 uniform float uWaveWidth;
+uniform float uEdgeFade;
 uniform float uXCount;
 uniform float uXPos;
 uniform float uYCount;
@@ -83,6 +84,13 @@ vec3 sampleVol(vec3 p) {
 }
 
 float filledAt(vec3 p) { return step(timeAt(p), uFilled); }
+
+// Klippets början och slut kan tonas in och ut mot lådans fram- och bakkant.
+float edgeAt(vec3 p) {
+  if (uEdgeFade <= 0.001) return 1.0;
+  float t = timeAt(p);
+  return smoothstep(0.0, uEdgeFade, t) * smoothstep(0.0, uEdgeFade, 1.0 - t);
+}
 
 // Bildrutor nära den som spelas upp syns starkast och tonar ut åt båda håll.
 // Vågens längd är andelen av klippet som fortfarande syns tydligt.
@@ -154,11 +162,12 @@ vec3 timeSliceColor(vec3 p) {
 // ner till uTimeFade och stiger upp igen mot nästa topp.
 float sliceFade(vec3 p) {
   if (uTimeFade <= 0.001) return 1.0;
-  float k = floor(abs(timeAt(p) - uTimePos) * uTimeCount + 0.5);
-  float spacing = max(1.0, floor(uTimeCount / max(uTimeFull, 1.0) + 0.5));
-  float toNearest = abs(k - spacing * floor(k / spacing + 0.5));
-  float t = clamp(toNearest / (spacing * 0.5), 0.0, 1.0);
-  float arc = pow(0.5 + 0.5 * cos(3.14159265 * t), uTimeCurve);
+  // Topparna ligger en period isär i klippets tid: uTimeFull stycken jämnt
+  // fördelade, alla lika starka, var och en med en båge före och efter sig.
+  float period = 1.0 / max(uTimeFull, 1.0);
+  float phase = (timeAt(p) - uTimePos) / period;
+  float toNearest = abs(phase - floor(phase + 0.5));
+  float arc = pow(0.5 + 0.5 * cos(6.2831853 * toNearest), uTimeCurve);
   return 1.0 - uTimeFade * (1.0 - arc);
 }
 
@@ -197,7 +206,8 @@ void main() {
     vec3 tint = vec3(0.78, 0.9, 1.0) * 0.35 + spectrum(fresIn * 1.3 + dot(pIn, vec3(0.6, 0.9, 0.4))) * 0.12;
     glass += tint * f * uGlass;
     glass += vec3(0.85, 0.95, 1.0) * exp(-edgeDist(pIn, nIn) * 28.0) * uEdgeGlow * 0.5;
-    over(col, acc, grade(sampleVol(pIn)), uShellFront * grazing(fresIn) * filledAt(pIn) * waveAt(pIn));
+    over(col, acc, grade(sampleVol(pIn)),
+      uShellFront * grazing(fresIn) * filledAt(pIn) * waveAt(pIn) * edgeAt(pIn));
   }
 
   // Snittplanens läge längs strålen: A är planet vid positionen, B avståndet till nästa.
@@ -229,7 +239,7 @@ void main() {
       ts = nextSlice(ts, tEnd, aT, bT);
       if (ts < 0.0) break;
       vec3 p = vOrigin + rd * ts;
-      over(col, acc, grade(timeSliceColor(p)), uTimeOpacity * sliceFade(p) * filledAt(p) * waveAt(p));
+      over(col, acc, grade(timeSliceColor(p)), uTimeOpacity * sliceFade(p) * filledAt(p) * edgeAt(p));
       ts += 1e-6;
     }
     ts = tPrev;
@@ -237,7 +247,7 @@ void main() {
       ts = nextSlice(ts, tEnd, aX, bX);
       if (ts < 0.0) break;
       vec3 p = vOrigin + rd * ts;
-      over(col, acc, grade(sampleVol(p)), uXOpacity * filledAt(p) * waveAt(p));
+      over(col, acc, grade(sampleVol(p)), uXOpacity * filledAt(p) * waveAt(p) * edgeAt(p));
       ts += 1e-6;
     }
     ts = tPrev;
@@ -245,7 +255,7 @@ void main() {
       ts = nextSlice(ts, tEnd, aY, bY);
       if (ts < 0.0) break;
       vec3 p = vOrigin + rd * ts;
-      over(col, acc, grade(sampleVol(p)), uYOpacity * filledAt(p) * waveAt(p));
+      over(col, acc, grade(sampleVol(p)), uYOpacity * filledAt(p) * waveAt(p) * edgeAt(p));
       ts += 1e-6;
     }
 
@@ -253,7 +263,7 @@ void main() {
       vec3 p = vOrigin + rd * t;
       if (timeAt(p) <= uFilled) {
         vec3 s = grade(sampleVol(p));
-        float k = mix(1.0, 0.25 + 1.5 * luma(s), uLumWeight) * waveAt(p);
+        float k = mix(1.0, 0.25 + 1.5 * luma(s), uLumWeight) * waveAt(p) * edgeAt(p);
         if (uBlend == 0) {
           over(col, acc, s, 1.0 - exp(-uDensity * k * dt * worldPerUnit));
         } else if (uBlend == 1) {
@@ -275,7 +285,8 @@ void main() {
   // Baksidan av lådan.
   if (acc < 0.985) {
     float fresOut = 1.0 - abs(dot(nOut, rdW));
-    over(col, acc, grade(sampleVol(pOut)), uShellBack * grazing(fresOut) * filledAt(pOut) * waveAt(pOut));
+    over(col, acc, grade(sampleVol(pOut)),
+      uShellBack * grazing(fresOut) * filledAt(pOut) * waveAt(pOut) * edgeAt(pOut));
     glass += vec3(0.85, 0.95, 1.0) * exp(-edgeDist(pOut, nOut) * 28.0) * uEdgeGlow * 0.25 * (1.0 - acc);
   }
 

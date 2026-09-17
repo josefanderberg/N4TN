@@ -39,7 +39,7 @@ Allt körs lokalt i webbläsaren. Ingen fil laddas upp någonstans.
 | --- | --- |
 | **Sparade inställningar** | Namngivna uppsättningar av alla reglage: spara, hämta tillbaka, ta bort. Samt en kort kod för att dela eller flytta en uppsättning. |
 | **Volym** | Antal bildrutor och upplösning i 3D-texturen — fria tal, skriv vad du vill (2–512 bildrutor, 32–720 px). Raden under visar vad valet kostar i minne. Ändring kräver **Bygg om volym**. Här finns också lådans djup och tidsriktning. |
-| **Utseende** | Innehåll (bild/rörelse), blandning, densitet, hur mycket ytorna syns, ljusstyrka, mättnad, glasreflex, kantglöd, kantlinjer, renderingskvalitet och bakgrundsfärg. |
+| **Utseende** | Innehåll (bild/rörelse), blandning, densitet, toning vid klippets ändar, hur mycket ytorna syns, ljusstyrka, mättnad, glasreflex, kantglöd, kantlinjer, renderingskvalitet och bakgrundsfärg. |
 | **Snitt** | En flik per riktning: djupled (tiden), sidled (X) och höjdled (Y). Varje flik har antal, position, automatiskt svep och egen opacitet. Antalet styr hur många plan som läggs ut med jämna mellanrum; 0 stänger av riktningen och gråar ut resten av flikens reglage. |
 | **Kamera** | Följ tidssnittet, fri musstyrning, pendel eller rotation, hastighet och brännvidd. |
 | **Export** | Bildformat (1:1, 4:5, 9:16, 16:9), bildfrekvens, kvalitet, antal varv och om ljudet ska med. |
@@ -56,13 +56,18 @@ Allt körs lokalt i webbläsaren. Ingen fil laddas upp någonstans.
 
 **Antal** lägger ut flera tidssnitt med jämna mellanrum, som alla följer uppspelningen.
 
-**Snitt med full styrka** är hur många av snitten som behåller full opacitet, utspridda jämnt
-över hela stacken: ett vid uppspelningen och sedan var n:te snitt åt båda håll. Med 50 snitt
-och 10 fulla hamnar topparna på steg 0, 5, 10 och så vidare.
+**Snitt med full styrka** är hur många av snitten som lyser för fullt samtidigt, jämnt
+fördelade över klippet. 1 ger ett — det som spelas. 2 ger två som ligger en halv film isär och
+går samtidigt, 3 ger tre en tredjedel isär, och så vidare. Alla är lika starka och var och en
+har en båge före och efter sig. De vandrar med uppspelningen: när en lämnar bakkanten kommer
+nästa in framifrån.
 
-**Uttoning mellan dem** är hur djupt det sjunker mellan två toppar — 0 ger lika starka snitt
-hela vägen, 1 släcker dalarna helt. **Bågens form** ändrar kurvan däremellan: låga värden ger
-breda toppar som nästan möts, höga ger spetsiga toppar med tydliga mellanrum.
+**Uttoning mellan dem** är hur djupt det sjunker i dalarna mellan topparna — 0 ger lika starka
+snitt hela vägen, 1 släcker dalarna helt. **Bågens form** ändrar kurvan däremellan: låga värden
+ger breda toppar som nästan möts, höga ger spetsiga toppar med tydliga mellanrum.
+
+Tidssnitten styrs bara av de här reglagen. Vågen under Utseende gäller volymen och lådans ytor,
+så att den inte trycker ner toppar som ligger långt från uppspelningen.
 
 ### Vågen
 
@@ -101,6 +106,12 @@ Med **Följ tidssnittet** åker kameran med bildrutan som spelas upp genom låda
 avstånd från den, och hoppar tillbaka till framkanten när klippet börjar om. Eftersom kameran
 då färdas in i lådan växer lådan i bild under klippets gång — dra ner **Djup (tid)** eller
 zooma ut om det blir för mycket. Kryssa ur för en stillastående kamera som ser hela lådan.
+
+### Tona in och ut
+
+**Tona in och ut vid ändarna** under Utseende låter klippets början och slut tona mot lådans
+fram- och bakkant i stället för att börja och sluta tvärt. Värdet är hur stor del av klippet
+toningen tar i var ände.
 
 ### Dela med en kod
 

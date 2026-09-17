@@ -18,6 +18,7 @@ const DEFAULTS = {
   lumWeight: 0.4,
   wave: 0.7,
   waveWidth: 0.3,
+  edgeFade: 0,
   shellFront: 0.75,
   shellBack: 0.6,
   brightness: 1.1,
@@ -891,10 +892,14 @@ const volumeUpToDate = () =>
 const sections = [
   {
     title: 'Sparade inställningar',
+    accent: '#8fb9ff',
+    hint: 'Spara looks du gillar, och dela dem med en kod.',
     items: [{ type: 'custom', render: renderPresets }],
   },
   {
     title: 'Volym',
+    accent: '#7fd4c1',
+    hint: 'Hur många bildrutor lådan byggs av, och hur djup den blir.',
     items: [
       { type: 'number', key: 'frames', label: 'Bildrutor', min: 2, max: 512, step: 1 },
       { type: 'number', key: 'size', label: 'Upplösning (px)', min: 32, max: 720, step: 1 },
@@ -908,6 +913,8 @@ const sections = [
   },
   {
     title: 'Utseende',
+    accent: '#c4a6ff',
+    hint: 'Hur bildrutorna vägs ihop, och hur lådan lyser.',
     items: [
       { type: 'select', key: 'content', label: 'Innehåll', options: [
         [0, 'Bild'], [1, 'Rörelse'],
@@ -923,6 +930,7 @@ const sections = [
       { type: 'range', key: 'wave', label: 'Våg kring bildrutan som spelas', min: 0, max: 4, step: 0.01 },
       { type: 'range', key: 'waveWidth', label: 'Vågens längd', min: 0.02, max: 1, step: 0.01,
         visible: (p) => p.wave > 0 },
+      { type: 'range', key: 'edgeFade', label: 'Tona in och ut vid ändarna', min: 0, max: 0.5, step: 0.005 },
       { type: 'range', key: 'shellFront', label: 'Yta fram', min: 0, max: 1, step: 0.01 },
       { type: 'range', key: 'shellBack', label: 'Yta bak', min: 0, max: 1, step: 0.01 },
       { type: 'range', key: 'brightness', label: 'Ljusstyrka', min: 0.2, max: 3, step: 0.01 },
@@ -936,6 +944,8 @@ const sections = [
   },
   {
     title: 'Snitt',
+    accent: '#ffc978',
+    hint: 'Skarpa plan genom lådan — en flik per riktning.',
     items: [
       { type: 'tabs',
         tabs: [['time', 'Djupled'], ['x', 'Sidled'], ['y', 'Höjdled']],
@@ -980,6 +990,8 @@ const sections = [
   },
   {
     title: 'Kamera',
+    accent: '#9ede8a',
+    hint: 'Var kameran står och hur den rör sig.',
     items: [
       { type: 'checkbox', key: 'followSlice', label: 'Följ tidssnittet' },
       { type: 'select', key: 'motion', label: 'Rörelse', options: [
@@ -995,6 +1007,8 @@ const sections = [
   },
   {
     title: 'Export',
+    accent: '#ff9db1',
+    hint: 'Format och kvalitet på filen du laddar ned.',
     items: [
       { type: 'select', key: 'format', label: 'Format', options: [
         ['1080x1080', '1:1 · 1080×1080'],
