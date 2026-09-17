@@ -34,6 +34,7 @@ const DEFAULTS = {
   timeFollow: true,
   timePos: 0,
   timeOpacity: 0.92,
+  timeFull: 1,
   timeFade: 0.4,
   xCount: 0,
   xPos: 0.5,
@@ -936,7 +937,9 @@ const sections = [
         visible: () => ui.sliceTab === 'time', disabled: (p) => !p.timeOn || p.timeFollow },
       { type: 'range', key: 'timeOpacity', label: 'Opacitet', min: 0, max: 1, step: 0.01,
         visible: () => ui.sliceTab === 'time', disabled: (p) => !p.timeOn },
-      { type: 'range', key: 'timeFade', label: 'Uttoning mot grannarna', min: 0, max: 1, step: 0.01,
+      { type: 'range', key: 'timeFull', label: 'Snitt med full styrka', min: 1, max: 33, step: 2,
+        visible: () => ui.sliceTab === 'time', disabled: (p) => !p.timeOn || p.timeCount < 2 },
+      { type: 'range', key: 'timeFade', label: 'Uttoning därefter', min: 0, max: 1, step: 0.01,
         visible: () => ui.sliceTab === 'time', disabled: (p) => !p.timeOn || p.timeCount < 2 },
 
       { type: 'range', key: 'xCount', label: 'Antal', min: 0, max: 64, step: 1,

@@ -55,9 +55,11 @@ Allt körs lokalt i webbläsaren. Ingen fil laddas upp någonstans.
 ### Snitten i djupled
 
 **Antal** lägger ut flera tidssnitt med jämna mellanrum, som alla följer uppspelningen.
-**Uttoning mot grannarna** bestämmer hur mycket svagare varje steg från det som spelas är:
-snittet vid uppspelningen är alltid 1, och varje granne därifrån dämpas med samma faktor.
-0 ger lika starka snitt, 1 lämnar bara det som spelas kvar.
+
+**Snitt med full styrka** är hur många av dem närmast uppspelningen som behåller full
+opacitet — 1 är bara det som spelas, 3 är det plus grannen på var sida, och så vidare.
+**Uttoning därefter** bestämmer hur mycket svagare varje steg utanför kärnan är: samma
+faktor för varje steg, så 0 ger lika starka snitt hela vägen och 1 lämnar bara kärnan kvar.
 
 ### Vågen
 

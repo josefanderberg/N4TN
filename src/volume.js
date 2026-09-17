@@ -105,6 +105,7 @@ export class VolumeBox {
       uTimePos: { value: 0 },
       uTimeOpacity: { value: 0.92 },
       uTimeFade: { value: 0.4 },
+      uTimeFullSteps: { value: 0 },
       uSharpTol: { value: 0.004 },
       uWave: { value: 0.7 },
       uWaveWidth: { value: 0.3 },
@@ -207,6 +208,8 @@ export class VolumeBox {
     u.uTimePos.value = p.timePosEffective;
     u.uTimeOpacity.value = p.timeOpacity;
     u.uTimeFade.value = p.timeFade;
+    // Reglaget räknas i antal snitt kring mitten; shadern räknar i steg utåt.
+    u.uTimeFullSteps.value = (p.timeFull - 1) / 2;
     u.uWave.value = p.wave;
     u.uWaveWidth.value = p.waveWidth;
     u.uXCount.value = p.xCount;
