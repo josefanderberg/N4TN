@@ -87,6 +87,9 @@ function saveParams() {
 
 const params = loadParams();
 
+// Rent utseende i panelen, inget som hör till bilden och sparas därför inte.
+const ui = { sliceTab: 'time' };
+
 function loadPresets() {
   try {
     const saved = JSON.parse(localStorage.getItem(PRESET_KEY) || '{}');
@@ -900,7 +903,7 @@ const sections = [
       { type: 'range', key: 'density', label: 'Densitet', min: 0, max: 10, step: 0.05,
         visible: (p) => p.blend !== 2 },
       { type: 'range', key: 'lumWeight', label: 'Ljusa partier tätare', min: 0, max: 1, step: 0.01 },
-      { type: 'range', key: 'wave', label: 'Våg kring bildrutan som spelas', min: 0, max: 1, step: 0.01 },
+      { type: 'range', key: 'wave', label: 'Våg kring bildrutan som spelas', min: 0, max: 4, step: 0.01 },
       { type: 'range', key: 'waveWidth', label: 'Vågens längd', min: 0.02, max: 1, step: 0.01,
         visible: (p) => p.wave > 0 },
       { type: 'range', key: 'shellFront', label: 'Yta fram', min: 0, max: 1, step: 0.01 },
@@ -917,32 +920,39 @@ const sections = [
   {
     title: 'Snitt',
     items: [
-      { type: 'heading', label: 'Djupled · tiden' },
-      { type: 'checkbox', key: 'timeOn', label: 'Visa tidssnitt' },
+      { type: 'tabs',
+        tabs: [['time', 'Djupled'], ['x', 'Sidled'], ['y', 'Höjdled']],
+        get: () => ui.sliceTab,
+        set: (value) => { ui.sliceTab = value; } },
+
+      { type: 'checkbox', key: 'timeOn', label: 'Visa tidssnitt',
+        visible: () => ui.sliceTab === 'time' },
       { type: 'range', key: 'timeCount', label: 'Antal', min: 1, max: 64, step: 1,
-        visible: (p) => p.timeOn },
+        visible: () => ui.sliceTab === 'time', disabled: (p) => !p.timeOn },
       { type: 'checkbox', key: 'timeFollow', label: 'Följ uppspelningen',
-        visible: (p) => p.timeOn },
+        visible: () => ui.sliceTab === 'time', disabled: (p) => !p.timeOn },
       { type: 'range', key: 'timePos', label: 'Position', min: 0, max: 1, step: 0.001,
-        visible: (p) => p.timeOn && !p.timeFollow },
+        visible: () => ui.sliceTab === 'time', disabled: (p) => !p.timeOn || p.timeFollow },
       { type: 'range', key: 'timeOpacity', label: 'Opacitet', min: 0, max: 1, step: 0.01,
-        visible: (p) => p.timeOn },
+        visible: () => ui.sliceTab === 'time', disabled: (p) => !p.timeOn },
 
-      { type: 'heading', label: 'Sidled · X' },
-      { type: 'range', key: 'xCount', label: 'Antal', min: 0, max: 64, step: 1 },
-      { type: 'checkbox', key: 'xSweep', label: 'Svep automatiskt', visible: (p) => p.xCount >= 1 },
+      { type: 'range', key: 'xCount', label: 'Antal', min: 0, max: 64, step: 1,
+        visible: () => ui.sliceTab === 'x' },
+      { type: 'checkbox', key: 'xSweep', label: 'Svep automatiskt',
+        visible: () => ui.sliceTab === 'x', disabled: (p) => p.xCount < 1 },
       { type: 'range', key: 'xPos', label: 'Position', min: 0, max: 1, step: 0.001,
-        visible: (p) => p.xCount >= 1 && !p.xSweep },
+        visible: () => ui.sliceTab === 'x', disabled: (p) => p.xCount < 1 || p.xSweep },
       { type: 'range', key: 'xOpacity', label: 'Opacitet', min: 0, max: 1, step: 0.01,
-        visible: (p) => p.xCount >= 1 },
+        visible: () => ui.sliceTab === 'x', disabled: (p) => p.xCount < 1 },
 
-      { type: 'heading', label: 'Höjdled · Y' },
-      { type: 'range', key: 'yCount', label: 'Antal', min: 0, max: 64, step: 1 },
-      { type: 'checkbox', key: 'ySweep', label: 'Svep automatiskt', visible: (p) => p.yCount >= 1 },
+      { type: 'range', key: 'yCount', label: 'Antal', min: 0, max: 64, step: 1,
+        visible: () => ui.sliceTab === 'y' },
+      { type: 'checkbox', key: 'ySweep', label: 'Svep automatiskt',
+        visible: () => ui.sliceTab === 'y', disabled: (p) => p.yCount < 1 },
       { type: 'range', key: 'yPos', label: 'Position', min: 0, max: 1, step: 0.001,
-        visible: (p) => p.yCount >= 1 && !p.ySweep },
+        visible: () => ui.sliceTab === 'y', disabled: (p) => p.yCount < 1 || p.ySweep },
       { type: 'range', key: 'yOpacity', label: 'Opacitet', min: 0, max: 1, step: 0.01,
-        visible: (p) => p.yCount >= 1 },
+        visible: () => ui.sliceTab === 'y', disabled: (p) => p.yCount < 1 },
     ],
   },
   {

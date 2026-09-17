@@ -83,10 +83,12 @@ float filledAt(vec3 p) { return step(timeAt(p), uFilled); }
 
 // Bildrutor nära den som spelas upp syns starkast och tonar ut åt båda håll.
 // Vågens längd är andelen av klippet som fortfarande syns tydligt.
+// Styrka över 1 drar ner även de närmaste grannarna och skär bort resten helt,
+// så att bara ett smalt fönster kring den spelande bildrutan blir kvar.
 float waveAt(vec3 p) {
   if (uWave <= 0.001) return 1.0;
   float d = (timeAt(p) - uTimePos) / max(uWaveWidth, 0.001);
-  return mix(1.0, exp(-d * d * 4.0), uWave);
+  return max(0.0, mix(1.0, exp(-d * d * 4.0), uWave));
 }
 
 vec3 grade(vec3 c) {

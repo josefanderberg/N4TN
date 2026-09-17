@@ -131,9 +131,20 @@ export function buildPanel(root, sections, params, defaults, onChange) {
     return row;
   }
 
-  function headingRow(item) {
-    const row = el('p', { class: 'row row-heading' }, item.label);
-    bindings.push({ item, row, sync: () => {} });
+  function tabsRow(item) {
+    const buttons = item.tabs.map(([value, label]) => {
+      const button = el('button', { type: 'button', class: 'tab' }, label);
+      button.addEventListener('click', () => {
+        item.set(value);
+        refresh();
+      });
+      return [value, button];
+    });
+    const row = el('div', { class: 'row row-tabs' }, ...buttons.map(([, b]) => b));
+    bindings.push({ item, row, sync: () => {
+      const active = item.get();
+      for (const [value, button] of buttons) button.classList.toggle('is-active', value === active);
+    } });
     return row;
   }
 
@@ -153,7 +164,7 @@ export function buildPanel(root, sections, params, defaults, onChange) {
     buttons: buttonsRow,
     note: noteRow,
     custom: customRow,
-    heading: headingRow,
+    tabs: tabsRow,
   };
 
   for (const section of sections) {

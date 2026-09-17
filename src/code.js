@@ -2,7 +2,13 @@
 // och inte har någon server som kan lagra dem. Bara värden som skiljer sig från
 // referensen nedan skrivs med, vilket håller koden kort.
 
-export const CODE_VERSION = 1;
+export const CODE_VERSION = 2;
+
+// Fält som betydde något annat i en äldre kodversion. Nyckeln är versionen,
+// värdet är fältets dåvarande beskrivning.
+const LEGACY = {
+  1: { wave: ['wave', 'f1', 0, 1, 0.01] },
+};
 
 // Referensvärden som koden räknar skillnad mot. De är FRYSTA: ändras appens
 // standardvärden får de inte ändras här, annars skulle gamla koder tolkas fel.
@@ -59,7 +65,7 @@ const FIELDS = [
   ['bitrate', 'i1'],
   ['audio', 'b'],
   ['loops', 'i1'],
-  ['wave', 'f1', 0, 1, 0.01],
+  ['wave', 'f1', 0, 4, 0.01],
   ['waveWidth', 'f1', 0.02, 1, 0.01],
   ['xOpacity', 'f1', 0, 1, 0.01],
   ['ySweep', 'b'],
@@ -198,7 +204,8 @@ export function decodeSettings(code) {
   if (!bytes || bytes.length < 2) return null;
   const body = bytes.subarray(0, bytes.length - 1);
   if (checksum(body) !== bytes[bytes.length - 1]) return null;
-  if (body[0] !== CODE_VERSION) return null;
+  const version = body[0];
+  if (version !== CODE_VERSION && !LEGACY[version]) return null;
 
   const values = {};
   let at = 1;
@@ -215,7 +222,7 @@ export function decodeSettings(code) {
     }
     if (marker & 128) return null;
     if (at + sizeOf(type) > body.length) return null;
-    const read = readField(field, body, at);
+    const read = readField(LEGACY[version]?.[key] ?? field, body, at);
     if (!read) return null;
     values[key] = read[0];
     at = read[1];

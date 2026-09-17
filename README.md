@@ -40,7 +40,7 @@ Allt körs lokalt i webbläsaren. Ingen fil laddas upp någonstans.
 | **Sparade inställningar** | Namngivna uppsättningar av alla reglage: spara, hämta tillbaka, ta bort. Samt en kort kod för att dela eller flytta en uppsättning. |
 | **Volym** | Antal bildrutor och upplösning i 3D-texturen — fria tal, skriv vad du vill (2–512 bildrutor, 32–720 px). Raden under visar vad valet kostar i minne. Ändring kräver **Bygg om volym**. Här finns också lådans djup och tidsriktning. |
 | **Utseende** | Innehåll (bild/rörelse), blandning, densitet, hur mycket ytorna syns, ljusstyrka, mättnad, glasreflex, kantglöd, kantlinjer, renderingskvalitet och bakgrundsfärg. |
-| **Snitt** | Tre grupper med egna reglage: djupled (tiden), sidled (X) och höjdled (Y). Varje grupp har antal, position, automatiskt svep och egen opacitet. Antalet styr hur många plan som läggs ut med jämna mellanrum; 0 stänger av riktningen. |
+| **Snitt** | En flik per riktning: djupled (tiden), sidled (X) och höjdled (Y). Varje flik har antal, position, automatiskt svep och egen opacitet. Antalet styr hur många plan som läggs ut med jämna mellanrum; 0 stänger av riktningen och gråar ut resten av flikens reglage. |
 | **Kamera** | Fri musstyrning, pendel eller rotation, hastighet och brännvidd. |
 | **Export** | Bildformat (1:1, 4:5, 9:16, 16:9), bildfrekvens, kvalitet, antal varv och om ljudet ska med. |
 
@@ -57,8 +57,11 @@ Allt körs lokalt i webbläsaren. Ingen fil laddas upp någonstans.
 **Våg kring bildrutan som spelas** låter bildrutorna närmast uppspelningen synas starkast och
 tona ut åt båda håll, i stället för att hela klippet syns lika mycket hela tiden. **Vågens
 längd** är hur stor del av klippet som fortfarande syns tydligt: en kort våg ger ett smalt
-fönster som vandrar genom lådan, en lång ger en mjuk uttoning. Sätt styrkan till 0 för att
-visa hela klippet lika starkt.
+fönster som vandrar genom lådan, en lång ger en mjuk uttoning.
+
+Styrkan går till 4. Upp till 1 är det en mjuk uttoning; över 1 dras även de närmaste grannarna
+ner och allt utanför fönstret skärs bort helt, så att bara en tunn skiva kring den spelande
+bildrutan blir kvar. Sätt 0 för att visa hela klippet lika starkt.
 
 ### Blandning
 
