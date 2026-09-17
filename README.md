@@ -37,7 +37,7 @@ Allt körs lokalt i webbläsaren. Ingen fil laddas upp någonstans.
 
 | Grupp | Vad det gör |
 | --- | --- |
-| **Sparade inställningar** | Namngivna uppsättningar av alla reglage. Spara, hämta tillbaka, ta bort — lägg dem i en fil, eller dela dem som en kort kod. |
+| **Sparade inställningar** | Namngivna uppsättningar av alla reglage: spara, hämta tillbaka, ta bort. Samt en kort kod för att dela eller flytta en uppsättning. |
 | **Volym** | Antal bildrutor och upplösning i 3D-texturen — fria tal, skriv vad du vill (2–512 bildrutor, 32–720 px). Raden under visar vad valet kostar i minne. Ändring kräver **Bygg om volym**. Här finns också lådans djup och tidsriktning. |
 | **Utseende** | Innehåll (bild/rörelse), blandning, densitet, hur mycket ytorna syns, ljusstyrka, mättnad, glasreflex, kantglöd, kantlinjer, renderingskvalitet och bakgrundsfärg. |
 | **Snitt** | Tre grupper med egna reglage: djupled (tiden), sidled (X) och höjdled (Y). Varje grupp har antal, position, automatiskt svep och egen opacitet. Antalet styr hur många plan som läggs ut med jämna mellanrum; 0 stänger av riktningen. |
@@ -77,9 +77,8 @@ inte rör sig i lås med varandra.
 
 Vill du kunna komma tillbaka till ett läge du gillar: skriv ett namn i **Sparade
 inställningar** och tryck Spara. Uppsättningen hamnar i listan och ligger kvar i webbläsaren
-till nästa gång. **Till fil** laddar ned alla sparade uppsättningar som JSON och **Från fil**
-läser in dem igen — praktiskt om du rensar webbläsaren, byter dator eller vill dela en look
-med någon annan.
+till nästa gång. Byter du dator eller rensar webbläsaren är det koden nedan som gäller —
+spara koden för de looks du bryr dig om, så kan du alltid få tillbaka dem.
 
 ### Dela med en kod
 

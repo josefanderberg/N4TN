@@ -729,9 +729,6 @@ function renderPresets(row) {
   });
   const saveBtn = make('button', { type: 'button', className: 'btn btn-small', textContent: 'Spara' });
   const deleteBtn = make('button', { type: 'button', className: 'btn btn-small', textContent: 'Ta bort' });
-  const exportBtn = make('button', { type: 'button', className: 'btn btn-small', textContent: 'Till fil' });
-  const importBtn = make('button', { type: 'button', className: 'btn btn-small', textContent: 'Från fil' });
-  const fileInput = make('input', { type: 'file', accept: 'application/json,.json', hidden: true });
   const codeInput = make('input', {
     type: 'text', className: 'preset-name preset-code', placeholder: 'Kod', spellcheck: false,
   });
@@ -814,50 +811,6 @@ function renderPresets(row) {
     persist(`Tog bort "${name}".`);
   });
 
-  exportBtn.addEventListener('click', () => {
-    const data = {
-      app: 'n4tn-tidskub',
-      version: 1,
-      savedAt: new Date().toISOString(),
-      presets,
-      current: { ...params },
-    };
-    downloadBlob(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }),
-      'n4tn-installningar.json');
-    status.textContent = 'Laddade ned inställningarna som fil.';
-  });
-
-  importBtn.addEventListener('click', () => fileInput.click());
-  fileInput.addEventListener('change', async (e) => {
-    const file = e.target.files[0];
-    e.target.value = '';
-    if (!file) return;
-    try {
-      const data = JSON.parse(await file.text());
-      // Filen kan vara en hel export eller en enda uppsättning inställningar.
-      const incoming = data?.presets && typeof data.presets === 'object'
-        ? data.presets
-        : { [file.name.replace(/\.json$/i, '')]: data };
-      let added = 0;
-      for (const [name, values] of Object.entries(incoming)) {
-        const clean = sanitize(values);
-        if (!Object.keys(clean).length) continue;
-        let unique = name;
-        for (let n = 2; presets[unique]; n++) unique = `${name} (${n})`;
-        presets[unique] = clean;
-        added++;
-      }
-      if (!added) {
-        status.textContent = 'Filen innehöll inga inställningar som gick att läsa.';
-        return;
-      }
-      refreshList();
-      persist(`Läste in ${added} inställning${added === 1 ? '' : 'ar'} från filen.`);
-    } catch {
-      status.textContent = 'Filen gick inte att läsa som inställningar.';
-    }
-  });
-
   shareBtn.addEventListener('click', async () => {
     const code = encodeSettings(params);
     codeInput.value = code;
@@ -887,18 +840,16 @@ function renderPresets(row) {
   });
 
   row.append(
-    select,
     make('div', { className: 'preset-row' }),
     make('div', { className: 'preset-row' }),
     make('p', { className: 'preset-label', textContent: 'Dela med en kod' }),
     make('div', { className: 'preset-row' }),
     shareBtn,
     status,
-    fileInput,
   );
+  row.children[0].append(select, deleteBtn);
   row.children[1].append(nameInput, saveBtn);
-  row.children[2].append(deleteBtn, exportBtn, importBtn);
-  row.children[4].append(codeInput, openBtn);
+  row.children[3].append(codeInput, openBtn);
 
   refreshList();
   return {
