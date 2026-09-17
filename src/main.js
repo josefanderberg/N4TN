@@ -46,6 +46,7 @@ const DEFAULTS = {
   ySweep: false,
   yOpacity: 0.3,
 
+  followSlice: true,
   motion: 'free',
   motionSpeed: 0.5,
   fov: 32,
@@ -287,6 +288,19 @@ function updateCamera(dt) {
   controls.update(dt);
 }
 
+// Kameran kan åka med tidssnittet genom lådan. Mål och kamera flyttas lika
+// mycket, så avståndet och vinkeln till snittet är oförändrade; när klippet
+// börjar om hoppar snittet tillbaka till framkanten och kameran med det.
+function followSlice(timePos) {
+  const desired = params.followSlice
+    ? (0.5 - timePos) * (params.flipTime ? -1 : 1) * volume.size.z
+    : 0;
+  const delta = desired - controls.target.z;
+  if (Math.abs(delta) < 1e-6) return;
+  controls.target.z += delta;
+  camera.position.z += delta;
+}
+
 // --- Renderloop ----------------------------------------------------------
 
 const timer = new THREE.Timer();
@@ -306,10 +320,10 @@ function tick(timestamp) {
   if (!state.hasVideo) state.demoTime += dt;
   if (params.xSweep || params.ySweep) state.sweepTime += dt * 0.5;
 
-  updateCamera(dt);
-
   Object.assign(frameParams, params);
   frameParams.timePosEffective = params.timeFollow ? currentTimeFraction() : params.timePos;
+  followSlice(frameParams.timePosEffective);
+  updateCamera(dt);
   frameParams.xPosEffective = params.xSweep
     ? 0.5 + 0.45 * Math.sin(state.sweepTime)
     : params.xPos;
@@ -967,6 +981,7 @@ const sections = [
   {
     title: 'Kamera',
     items: [
+      { type: 'checkbox', key: 'followSlice', label: 'Följ tidssnittet' },
       { type: 'select', key: 'motion', label: 'Rörelse', options: [
         ['free', 'Fri (mus)'], ['pendulum', 'Pendel'], ['rotate', 'Rotation'],
       ] },

@@ -19,7 +19,7 @@ const BASE = {
   timeOn: true, timeCount: 1, timeFollow: true, timePos: 0, timeOpacity: 0.92, timeFull: 1, timeFade: 0.4, timeCurve: 1,
   xCount: 0, xPos: 0.5, xSweep: false, xOpacity: 0.3,
   yCount: 0, yPos: 0.5, ySweep: false, yOpacity: 0.3, axisOpacity: 0.3,
-  motion: 'free', motionSpeed: 0.5, fov: 32, background: '#000000',
+  followSlice: true, motion: 'free', motionSpeed: 0.5, fov: 32, background: '#000000',
   format: '1080x1080', fps: 30, bitrate: 16, audio: true, loops: 1,
 };
 
@@ -73,6 +73,7 @@ const FIELDS = [
   ['timeFade', 'f1', 0, 1, 0.01],
   ['timeFull', 'i1'],
   ['timeCurve', 'f1', 0.2, 5, 0.05],
+  ['followSlice', 'b'],
 ];
 
 // Crockford base32: inga tecken som går att blanda ihop (I, L, O, U saknas),

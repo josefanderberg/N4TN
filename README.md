@@ -41,7 +41,7 @@ Allt körs lokalt i webbläsaren. Ingen fil laddas upp någonstans.
 | **Volym** | Antal bildrutor och upplösning i 3D-texturen — fria tal, skriv vad du vill (2–512 bildrutor, 32–720 px). Raden under visar vad valet kostar i minne. Ändring kräver **Bygg om volym**. Här finns också lådans djup och tidsriktning. |
 | **Utseende** | Innehåll (bild/rörelse), blandning, densitet, hur mycket ytorna syns, ljusstyrka, mättnad, glasreflex, kantglöd, kantlinjer, renderingskvalitet och bakgrundsfärg. |
 | **Snitt** | En flik per riktning: djupled (tiden), sidled (X) och höjdled (Y). Varje flik har antal, position, automatiskt svep och egen opacitet. Antalet styr hur många plan som läggs ut med jämna mellanrum; 0 stänger av riktningen och gråar ut resten av flikens reglage. |
-| **Kamera** | Fri musstyrning, pendel eller rotation, hastighet och brännvidd. |
+| **Kamera** | Följ tidssnittet, fri musstyrning, pendel eller rotation, hastighet och brännvidd. |
 | **Export** | Bildformat (1:1, 4:5, 9:16, 16:9), bildfrekvens, kvalitet, antal varv och om ljudet ska med. |
 
 ### Innehåll
@@ -94,6 +94,13 @@ Vill du kunna komma tillbaka till ett läge du gillar: skriv ett namn i **Sparad
 inställningar** och tryck Spara. Uppsättningen hamnar i listan och ligger kvar i webbläsaren
 till nästa gång. Byter du dator eller rensar webbläsaren är det koden nedan som gäller —
 spara koden för de looks du bryr dig om, så kan du alltid få tillbaka dem.
+
+### Följ tidssnittet
+
+Med **Följ tidssnittet** åker kameran med bildrutan som spelas upp genom lådan, på konstant
+avstånd från den, och hoppar tillbaka till framkanten när klippet börjar om. Eftersom kameran
+då färdas in i lådan växer lådan i bild under klippets gång — dra ner **Djup (tid)** eller
+zooma ut om det blir för mycket. Kryssa ur för en stillastående kamera som ser hela lådan.
 
 ### Dela med en kod
 
