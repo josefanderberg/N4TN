@@ -60,8 +60,8 @@ uniform float uTimePos;
 uniform float uTimeOpacity;
 uniform float uTimeRestOpacity;
 uniform float uTimeFullOpacity;
-// 0 = alla fulla ögonblick lika starka; 1 = de stiger mot den spelades nivå
-// ju närmare den de ligger.
+// Trappsteget: hur mycket varje fullt ögonblick tappar i opacitet för varje
+// steg bort från den spelade bildrutan. 0 = alla lika starka.
 uniform float uTimeGradient;
 uniform float uTimeFull;
 uniform float uTimeCurve;
@@ -237,16 +237,17 @@ float grazing(float fres) { return 0.12 + 0.88 * pow(fres, 1.5); }
 // snitten är vridna och en punkt inte längre har en enda tid.
 float sliceAlpha(float sliceIndex) {
   float phase = sliceIndex * uTimeFull / max(uTimeCount, 1.0);
-  float toNearest = abs(phase - floor(phase + 0.5));
+  float nearest = floor(phase + 0.5);
+  float toNearest = abs(phase - nearest);
   float arc = pow(0.5 + 0.5 * cos(6.2831853 * toNearest), uTimeCurve);
-  // Bildrutan som spelas (snitt 0) har sin egen nivå. Övriga toppar ligger på
-  // de fulla ögonblickens nivå — och med dynamisk opacitet stiger de mot den
-  // spelades nivå ju närmare den de ligger, längst bort ner till sin egen.
-  float dist = min(abs(sliceIndex) / max(uTimeCount, 1.0), 1.0);
-  float near = mix(uTimeFullOpacity, uTimeOpacity, uTimeGradient);
-  float peak = abs(sliceIndex) < 0.5
+  // Bildrutan som spelas är klarast. Övriga fulla ögonblick börjar på sin
+  // egen nivå och tappar ett trappsteg för varje steg bort från den spelade
+  // (0,9 → 0,8 → 0,7 …), så att det längst bort visas svagast. nearest är
+  // vilket fullt ögonblick i ordningen punkten hör till.
+  float rank = abs(nearest);
+  float peak = rank < 0.5
     ? uTimeOpacity
-    : mix(near, uTimeFullOpacity, dist);
+    : max(uTimeFullOpacity - (rank - 1.0) * uTimeGradient, 0.0);
   return mix(uTimeRestOpacity, peak, arc);
 }
 

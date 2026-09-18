@@ -1117,7 +1117,7 @@ const sections = [
         info: 'Styrkan på de övriga ögonblicken med full styrka. Den spelade bildrutan har sitt eget reglage ovanför.' },
       { type: 'range', key: 'timeGradient', label: 'Dynamisk opacitet', min: 0, max: 1, step: 0.01,
         visible: () => ui.sliceTab === 'time', disabled: (p) => !p.timeOn || p.timeCount < 2,
-        info: 'Låter ögonblicken stiga i styrka ju närmare den spelade bildrutan de ligger — från nivån för fulla ögonblick längst bort, upp mot den spelades nivå intill. 0 gör alla fulla lika starka.' },
+        info: 'Hur mycket varje fullt ögonblick tappar per steg bort från den spelade bildrutan — 0,1 ger 0,9, 0,8, 0,7 … så att det längst bort visas svagast. 0 gör alla fulla lika starka.' },
       { type: 'note', text: 'Höj Antal över 1 för fler ögonblick genom lådan — då vaknar mönstret mellan dem.',
         visible: (p) => ui.sliceTab === 'time' && p.timeOn && p.timeCount < 2 },
       { type: 'note', text: 'Hög opacitet gör att det främsta ögonblicket skymmer de bakom — sänk den för att se flera.',
