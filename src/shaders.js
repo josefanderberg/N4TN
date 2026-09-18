@@ -79,6 +79,8 @@ uniform float uTiltV;
 uniform float uSliceW;
 uniform float uSliceH;
 uniform float uXCount;
+// Solfjädern: sidosnitten går genom lådans mittaxel i stället för rakt igenom.
+uniform float uXFan;
 uniform float uXPos;
 uniform float uYCount;
 uniform float uXOpacity;
@@ -280,6 +282,30 @@ float nextWallSlice(float tA, float tB, float axO, float axD, float oz, float dz
   return (t >= tA && t < tB) ? t : -1.0;
 }
 
+// Solfjäderns nästa blad längs strålen. Bladen är plan genom mittaxeln,
+// jämnt spridda i vinkel (A + k·B), och vinkeln sedd från axeln är monoton
+// längs en rak stråle, så det räcker att kliva mot nästa bladvinkel i
+// färdriktningen och lösa ut t ur planet.
+float fanNext(float tA, float tB, vec3 o, vec3 d, float A, float B) {
+  if (B <= 0.0) return -1.0;
+  float qA = atan((o.x + tA * d.x) * uScale.x, (o.z + tA * d.z) * uScale.z);
+  float qB = atan((o.x + tB * d.x) * uScale.x, (o.z + tB * d.z) * uScale.z);
+  float dq = qB - qA;
+  if (dq > 3.14159265) dq -= 6.2831853;
+  if (dq < -3.14159265) dq += 6.2831853;
+  float v = dq > 0.0
+    ? A + ceil((qA - A) / B) * B
+    : A + floor((qA - A) / B) * B;
+  if (abs(v - qA) > abs(dq)) return -1.0;
+  float cv = cos(v);
+  float sv = sin(v);
+  float f0 = cv * o.x * uScale.x - sv * o.z * uScale.z;
+  float fd = cv * d.x * uScale.x - sv * d.z * uScale.z;
+  if (abs(fd) < 1e-7) return -1.0;
+  float t = -f0 / fd;
+  return (t >= tA && t < tB) ? t : -1.0;
+}
+
 void main() {
   vec3 rd = normalize(vDirection);
   vec2 b = hitBox(vOrigin, rd);
@@ -371,7 +397,10 @@ void main() {
     }
     ts = tPrev;
     for (int n = 0; n < MAX_SLICES_PER_STEP; n++) {
-      ts = nextWallSlice(ts, tEnd, vOrigin.x, rd.x, vOrigin.z, rd.z, xA, xB);
+      ts = uXFan > 0.5
+        ? fanNext(ts, tEnd, vOrigin, rd, uXPos * 3.14159265,
+            uXCount > 0.5 ? 3.14159265 / uXCount : 0.0)
+        : nextWallSlice(ts, tEnd, vOrigin.x, rd.x, vOrigin.z, rd.z, xA, xB);
       if (ts < 0.0) break;
       vec3 p = vOrigin + rd * ts;
       over(col, acc, grade(sampleVol(p)), uXOpacity * filledAt(p) * waveAt(p) * edgeAt(p));
