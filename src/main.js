@@ -960,12 +960,6 @@ const volumeUpToDate = () =>
 
 const sections = [
   {
-    title: 'Sparade inställningar',
-    accent: '#8fb9ff',
-    hint: 'Spara looks du gillar, och dela dem med en kod.',
-    items: [{ type: 'custom', render: renderPresets }],
-  },
-  {
     title: 'Volym',
     accent: '#7fd4c1',
     hint: 'Sammanhanget: lådan som klippet byggs in i, och rummet runt den.',
@@ -1153,7 +1147,7 @@ const sections = [
     hint: 'Vrider ögonblicken mot kameravinkeln, så att de står på diagonalen.',
     items: [
       { type: 'checkbox', key: 'special', label: 'Vrid ögonblicken efter kameran',
-        info: 'Ögonblicken vrider sig mot kameran när den åker runt lådan, i stället för att stå rakt.' },
+        info: 'Ögonblicken vrider sig mot kameran när den åker runt lådan. Lådan smalnar av med vinkeln, så varje ögonblick går helt från vägg till vägg.' },
       { type: 'checkbox', key: 'specialReverse', label: 'Motsatt håll',
         disabled: (p) => !p.special,
         info: 'Vrider åt andra hållet i förhållande till kameran.' },
@@ -1211,6 +1205,12 @@ const sections = [
       { type: 'note', id: 'export-status',
         text: 'Exporten spelar in i realtid i den hastighet du valt under videon. Håll fliken synlig under tiden.' },
     ],
+  },
+  {
+    title: 'Sparade inställningar',
+    accent: '#8fb9ff',
+    hint: 'Spara looks du gillar, och dela dem med en kod.',
+    items: [{ type: 'custom', render: renderPresets }],
   },
 ];
 

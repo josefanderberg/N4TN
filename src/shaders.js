@@ -59,6 +59,9 @@ uniform float uEdgeFade;
 uniform float uSliceWave;
 uniform float uSliceWaveWidth;
 uniform float uTilt;
+// Snittens egen bredd i världsmått: vid vridning är lådan smalare än snitten
+// är breda, så bredden kan inte läsas ur uScale.x.
+uniform float uSliceW;
 uniform float uXCount;
 uniform float uXPos;
 uniform float uYCount;
@@ -249,8 +252,9 @@ void main() {
       vec3 p = vOrigin + rd * ts;
       float sliceIndex = (dot(tiltN, p * uScale) - cZero) / cStep;
       float sliceTime = uTimePos - uTimeDir * sliceIndex / max(uTimeCount, 1.0);
-      // Snittets bredd är densamma vid vridning; det är lådan som klipper det.
-      vec2 uv = vec2(dot(p * uScale, tiltR) / uScale.x + 0.5, p.y + 0.5);
+      // Snittet behåller sin fulla bredd vid vridning; lådan är i stället
+      // avsmalnad så att snittet precis når från vägg till vägg.
+      vec2 uv = vec2(dot(p * uScale, tiltR) / uSliceW + 0.5, p.y + 0.5);
       if (uv.x >= 0.0 && uv.x <= 1.0) {
         vec3 c = (uHasVideo > 0.5 && abs(sliceIndex) < 0.5)
           ? texture(uVideo, uv).rgb

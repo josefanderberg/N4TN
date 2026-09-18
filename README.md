@@ -42,7 +42,6 @@ det ändrar.
 
 | Grupp | Vad det gör |
 | --- | --- |
-| **Sparade inställningar** | Namngivna uppsättningar av alla reglage: spara, hämta tillbaka, ta bort. Samt en kort kod för att dela eller flytta en uppsättning. |
 | **Volym** | Sammanhanget: lådan som klippet byggs in i. Antal bildrutor och upplösning i 3D-texturen — fria tal, skriv vad du vill (2–512 bildrutor, 32–720 px). Raden under visar vad valet kostar i minne och om volymen är byggd med just de värdena. Ändring kräver **Bygg om volym**, som går att trycka på så fort ett klipp är laddat — även med oförändrade värden, för att göra om ett bygge som blev fel eller avbröts. Djupet är ett reglage upp till 5; **Utöka djupet…** öppnar ett fritt fält där du skriver vad du vill upp till 200. Längst ner lådans egna kanter: kantlinjer, kantglöd och bakgrundsfärg. |
 | **Utseende** | Helheten inne i lådan: innehåll (bild/rörelse), blandning, densitet, toning vid klippets ändar, hur mycket ytorna syns, ljusstyrka, mättnad, glasreflex och renderingskvalitet. |
 | **Ögonblick** | Bildrutorna som skarpa plan — flera tider samtidigt. En flik per riktning: djupled (tiden), sidled (X) och höjdled (Y), var och en med antal, position, uppspelning/svep och opacitet. Antalet går till 256; 0 (eller avbockat) stänger av riktningen och gråar ut resten av flikens reglage. |
@@ -50,6 +49,7 @@ det ändrar.
 | **Special** | Vrider ögonblicken mot kameravinkeln, med håll och styrka. |
 | **Kamera** | Följ ögonblicket, fri musstyrning, pendel eller rotation, hastighet och brännvidd. |
 | **Export** | Bildformat (1:1, 4:5, 9:16, 16:9), bildfrekvens, kvalitet, antal varv och om ljudet ska med. |
+| **Sparade inställningar** | Längst ner: namngivna uppsättningar av alla reglage — spara, hämta tillbaka, ta bort — samt en kort kod för att dela eller flytta en uppsättning. |
 
 ### Innehåll
 
@@ -117,11 +117,12 @@ spara koden för de looks du bryr dig om, så kan du alltid få tillbaka dem.
 
 ### Special
 
-**Vrid snitten efter kameran** vrider djupsnitten lika mycket som kameran är vinklad mot
+**Vrid ögonblicken efter kameran** vrider ögonblicken lika mycket som kameran är vinklad mot
 lådans mittpunkt, fast åt motsatt håll, så att de står på diagonalen men behåller sin ordning
-genom lådan. Snitten behåller sin egen bredd; det är lådan som klipper dem smalare ju mer de
-vrids. **Motsatt håll** vänder vridningen, och **Hur mycket** skalar den — kring halv styrka
-syns lutningen tydligast, full styrka vrider dem nästan på kant mot kameran.
+genom lådan. Ögonblicken behåller sin fulla bredd; i stället smalnar lådan av med vinkeln och
+kramar dem, så att varje ögonblick går obrutet från vägg till vägg och stacken blir en jämn
+trappa längs samma raka bana. **Motsatt håll** vänder vridningen, och **Hur mycket** skalar
+den — kring halv styrka syns lutningen tydligast.
 
 ### Följ tidssnittet
 
