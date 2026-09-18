@@ -418,16 +418,27 @@ function setStatus(text) {
   if (note) note.textContent = text;
 }
 
-function waitFor(target, event) {
+// En telefon kan låta bli att hämta videon tills skärmen rörs, och då kommer
+// varken händelsen eller ett fel — därför en tidsgräns, så att väntan syns.
+function waitFor(target, event, timeoutMs = 20000) {
   return new Promise((resolve, reject) => {
-    const ok = () => {
+    const cleanup = () => {
+      clearTimeout(timer);
+      target.removeEventListener(event, ok);
       target.removeEventListener('error', fail);
+    };
+    const ok = () => {
+      cleanup();
       resolve();
     };
     const fail = () => {
-      target.removeEventListener(event, ok);
+      cleanup();
       reject(new Error('Videon kunde inte spelas upp i webbläsaren.'));
     };
+    const timer = setTimeout(() => {
+      cleanup();
+      reject(new Error('Videon startade inte. Tryck Försök igen.'));
+    }, timeoutMs);
     target.addEventListener(event, ok, { once: true });
     target.addEventListener('error', fail, { once: true });
   });
@@ -441,9 +452,15 @@ async function openSource(url, name) {
   state.sourceName = name;
   $('file-name').textContent = name;
   $('empty-hint').hidden = true;
+  busyIsError = false;
+  showBusy('Läser in video…', 0, () => {
+    state.loadToken++;
+    hideBusy();
+  });
 
   try {
     video.src = url;
+    video.load();
     await waitFor(video, 'loadedmetadata');
     if (token !== state.loadToken) return;
     if (previousUrl?.startsWith('blob:')) URL.revokeObjectURL(previousUrl);
@@ -459,8 +476,11 @@ async function openSource(url, name) {
     if (token !== state.loadToken) return;
     state.hasVideo = false;
     state.sourceUrl = null;
+    state.builtWith = null;
     volume.setVideo(null);
-    showError(err);
+    // Ett nytt försök startar från en knapptryckning, vilket är precis vad en
+    // webbläsare som höll igen på videon väntade på.
+    showError(err, () => openSource(url, name));
     syncPanel();
     return;
   }
@@ -520,13 +540,14 @@ async function buildVolume() {
 
 let busyIsError = false;
 
-function showError(err) {
+function showError(err, retry = null) {
   console.error(err);
   busyIsError = true;
   showBusy(err?.message || 'Något gick fel.', 0, () => {
     busyIsError = false;
     hideBusy();
-  }, 'Stäng');
+    retry?.();
+  }, retry ? 'Försök igen' : 'Stäng');
 }
 
 function openFile(file) {
@@ -535,7 +556,12 @@ function openFile(file) {
     showError(new Error(`"${file.name}" verkar inte vara en videofil.`));
     return;
   }
-  ensureAudio();
+  // Säger webbläsaren nej till ljudkopplingen ska klippet ändå gå att ladda in.
+  try {
+    ensureAudio();
+  } catch (err) {
+    console.warn('Ljudet kunde inte kopplas in.', err);
+  }
   openSource(URL.createObjectURL(file), file.name);
 }
 
