@@ -22,8 +22,10 @@ npm install
 npm run dev
 ```
 
-Öppna adressen som skrivs ut (http://localhost:5178) och dra in en videofil i fönstret,
-eller klicka på **Öppna video…**. Volymen byggs upp medan videon redan spelar.
+Öppna adressen som skrivs ut (http://localhost:5178). Innan du laddar något visas en genererad
+demoscen — en väg med en röd bil som rör sig — så att du kan prova alla reglage direkt. Dra
+sedan in en videofil i fönstret, eller klicka på **Öppna video…**. Volymen byggs upp medan
+videon redan spelar.
 
 För en skarp version:
 

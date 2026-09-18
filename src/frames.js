@@ -145,39 +145,77 @@ export async function extractFrames(src, { frames, size, onStart, onProgress, is
   }
 }
 
-// En enkel genererad volym som visas innan någon video har laddats.
+// En genererad demoscen som visas innan någon video har laddats: en väg med
+// mittlinje och en röd bil som rör sig. Den har rörelse i bilden, så att
+// tidskuben visar samma sorts struktur som ett riktigt klipp gör.
 export function makeDemoVolume() {
-  const w = 160;
-  const h = 90;
-  const d = 72;
+  const w = 192;
+  const h = 108;
+  const d = 96;
   const data = new Uint8Array(w * h * d * 4);
+  const HORIZON = 0.42;
   let o = 0;
+
   for (let z = 0; z < d; z++) {
-    const t = z / (d - 1);
-    const sx = 0.2 + 0.6 * t;
-    const sy = 0.42 + 0.12 * Math.sin(t * Math.PI * 2);
+    const t = z / d;
+    const carX = 0.5 + 0.3 * Math.sin(t * Math.PI * 2);
+    const carY = 0.64 + 0.08 * Math.sin(t * Math.PI * 2 * 0.7);
+    const carSize = 0.85 + 0.45 * Math.sin(t * Math.PI * 2 * 0.7);
+    const dash = t * 6;
+
     for (let y = 0; y < h; y++) {
       const v = y / (h - 1);
       for (let x = 0; x < w; x++) {
         const u = x / (w - 1);
-        const sky = v < 0.62;
-        let r, g, b;
-        if (sky) {
-          r = 0.12 + 0.55 * v;
-          g = 0.14 + 0.3 * v;
-          b = 0.32 + 0.15 * v;
+        let r;
+        let g;
+        let b;
+
+        if (v < HORIZON) {
+          // Skymningshimmel som ljusnar ner mot horisonten.
+          const k = v / HORIZON;
+          r = 0.13 + 0.22 * k;
+          g = 0.17 + 0.20 * k;
+          b = 0.28 + 0.16 * k;
         } else {
-          const stripe = Math.abs(u - 0.5 + (v - 0.62) * 0.2 * Math.sin(t * 6)) < 0.012 ? 0.6 : 0;
-          r = 0.18 + stripe;
-          g = 0.2 + stripe;
-          b = 0.24 + stripe;
+          // Vägen breder ut sig mot betraktaren.
+          const far = (v - HORIZON) / (1 - HORIZON);
+          const halfRoad = 0.06 + 0.42 * far;
+          const side = Math.abs(u - 0.5);
+          if (side < halfRoad) {
+            r = 0.19 + 0.05 * far;
+            g = 0.19 + 0.05 * far;
+            b = 0.2 + 0.05 * far;
+            // Streckad mittlinje som rusar mot betraktaren.
+            const dashWidth = 0.004 + 0.012 * far;
+            if (side < dashWidth && (far * 3 + dash) % 1 < 0.45) {
+              r = 0.85;
+              g = 0.85;
+              b = 0.72;
+            }
+          } else {
+            const shade = 0.5 + 0.5 * far;
+            r = 0.07 * shade;
+            g = 0.16 * shade;
+            b = 0.09 * shade;
+          }
         }
-        const dx = (u - sx) * (w / h);
-        const dy = v - sy;
-        const glow = Math.exp(-(dx * dx + dy * dy) * 60);
-        r += glow * 0.95;
-        g += glow * 0.35;
-        b += glow * 0.2;
+
+        // Bilen: kaross och ett mörkare tak.
+        const dx = (u - carX) / (0.075 * carSize);
+        const dy = (v - carY) / (0.045 * carSize);
+        if (Math.abs(dx) < 1 && Math.abs(dy) < 1) {
+          const roof = dy < -0.25 && Math.abs(dx) < 0.72;
+          r = roof ? 0.42 : 0.72;
+          g = roof ? 0.17 : 0.14;
+          b = roof ? 0.15 : 0.1;
+          if (dy > 0.55 && Math.abs(dx) > 0.55) {
+            r = 0.95;
+            g = 0.55;
+            b = 0.35;
+          }
+        }
+
         data[o++] = Math.min(255, r * 255);
         data[o++] = Math.min(255, g * 255);
         data[o++] = Math.min(255, b * 255);
