@@ -60,6 +60,9 @@ uniform float uTimePos;
 uniform float uTimeOpacity;
 uniform float uTimeRestOpacity;
 uniform float uTimeFullOpacity;
+// 0 = alla fulla ögonblick lika starka; 1 = de stiger mot den spelades nivå
+// ju närmare den de ligger.
+uniform float uTimeGradient;
 uniform float uTimeFull;
 uniform float uTimeCurve;
 uniform float uSharpTol;
@@ -236,8 +239,14 @@ float sliceAlpha(float sliceIndex) {
   float phase = sliceIndex * uTimeFull / max(uTimeCount, 1.0);
   float toNearest = abs(phase - floor(phase + 0.5));
   float arc = pow(0.5 + 0.5 * cos(6.2831853 * toNearest), uTimeCurve);
-  // Bildrutan som spelas (snitt 0) har sin egen nivå; övriga toppar sin.
-  float peak = abs(sliceIndex) < 0.5 ? uTimeOpacity : uTimeFullOpacity;
+  // Bildrutan som spelas (snitt 0) har sin egen nivå. Övriga toppar ligger på
+  // de fulla ögonblickens nivå — och med dynamisk opacitet stiger de mot den
+  // spelades nivå ju närmare den de ligger, längst bort ner till sin egen.
+  float dist = min(abs(sliceIndex) / max(uTimeCount, 1.0), 1.0);
+  float near = mix(uTimeFullOpacity, uTimeOpacity, uTimeGradient);
+  float peak = abs(sliceIndex) < 0.5
+    ? uTimeOpacity
+    : mix(near, uTimeFullOpacity, dist);
   return mix(uTimeRestOpacity, peak, arc);
 }
 

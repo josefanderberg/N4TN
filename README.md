@@ -65,7 +65,9 @@ tillbaka efter en ändring (dubbelklick på reglaget återställer det).
 Ögonblicken är tidssnitten: bildrutor som skarpa plan tvärs genom lådan, så att flera tider
 syns samtidigt. **Antal** lägger ut dem med jämna mellanrum, och alla följer uppspelningen.
 Opaciteten ställs i två reglage: ett för **bildrutan som spelas** och ett för de övriga
-**fulla ögonblicken**, så att det följda ögonblicket kan lysa för sig.
+**fulla ögonblicken**, så att det följda ögonblicket kan lysa för sig. **Dynamisk opacitet**
+låter de fulla ögonblicken stiga i styrka ju närmare den spelade bildrutan de ligger, i
+stället för att alla vara lika starka.
 
 ### Mönstret mellan ögonblicken
 

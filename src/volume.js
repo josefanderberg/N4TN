@@ -151,6 +151,7 @@ export class VolumeBox {
       uTimeOpacity: { value: 0.92 },
       uTimeRestOpacity: { value: 0.55 },
       uTimeFullOpacity: { value: 0.92 },
+      uTimeGradient: { value: 0 },
       uTimeFull: { value: 1 },
       uTimeCurve: { value: 1 },
       uSharpTol: { value: 0.004 },
@@ -294,6 +295,7 @@ export class VolumeBox {
     u.uTimeOpacity.value = p.timeOpacity;
     u.uTimeRestOpacity.value = p.timeRestOpacity;
     u.uTimeFullOpacity.value = p.timeFullOpacity;
+    u.uTimeGradient.value = p.timeGradient;
     u.uTimeFull.value = p.timeFull;
     u.uTimeCurve.value = p.timeCurve;
     u.uWave.value = p.wave;
