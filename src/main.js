@@ -46,6 +46,7 @@ const DEFAULTS = {
   timeFollow: true,
   timePos: 0,
   timeOpacity: 0.92,
+  timeFullOpacity: 0.92,
   timeRestOpacity: 0.55,
   timeFull: 1,
   timeCurve: 1,
@@ -80,10 +81,20 @@ const DEMO_DURATION = 6;
 function loadParams() {
   try {
     const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
-    return { ...DEFAULTS, ...sanitize(saved) };
+    return { ...DEFAULTS, ...sanitize(migrateFullOpacity(saved)) };
   } catch {
     return { ...DEFAULTS };
   }
+}
+
+// Sparat från innan de fulla ögonblicken fick eget reglage: de låg då på samma
+// nivå som bildrutan som spelas. Gäller hela uppsättningar (lagring och förval);
+// delningskoderna räknas om utifrån sin version i decodeSettings.
+function migrateFullOpacity(values) {
+  if (values && typeof values.timeOpacity === 'number' && values.timeFullOpacity === undefined) {
+    return { ...values, timeFullOpacity: values.timeOpacity };
+  }
+  return values;
 }
 
 let saveTimer = 0;
@@ -875,7 +886,7 @@ function renderPresets(row) {
     const name = select.value;
     if (!name) return;
     nameInput.value = name;
-    applyValues(presets[name]);
+    applyValues(migrateFullOpacity(presets[name]));
     status.textContent = `Hämtade "${name}".`;
     refreshList(name);
   });
@@ -1048,10 +1059,10 @@ const sections = [
     hint: 'Helheten inne i lådan: hur bildrutorna vägs ihop och lyser.',
     items: [
       { type: 'select', key: 'content', label: 'Innehåll', options: [
-        [0, 'Bild'], [1, 'Rörelse'],
-      ], info: 'Bild visar råa bildrutor. Rörelse visar skillnaden mellan bildrutor, så att stillastående faller bort och det som rör sig ritar banor genom lådan.' },
+        [0, 'Bild'], [1, 'Rörelse'], [2, 'Bild + rörelse'],
+      ], info: 'Bild visar råa bildrutor. Rörelse visar skillnaden mellan bildrutor, så att stillastående faller bort och det som rör sig ritar banor genom lådan. Bild + rörelse lägger banorna lysande ovanpå bilden.' },
       { type: 'range', key: 'motionGain', label: 'Rörelsekänslighet', min: 1, max: 40, step: 0.5,
-        visible: (p) => p.content === 1,
+        visible: (p) => p.content !== 0,
         info: 'Hur mycket små rörelser förstärks i rörelseläget.' },
       { type: 'select', key: 'blend', label: 'Blandning', options: [
         [0, 'Genomskinlig'], [1, 'Adderande'], [2, 'Maxljus'],
@@ -1097,9 +1108,12 @@ const sections = [
       { type: 'range', key: 'timePos', label: 'Position', min: 0, max: 1, step: 0.001,
         visible: () => ui.sliceTab === 'time', disabled: (p) => !p.timeOn || p.timeFollow,
         info: 'Var i klippet ögonblicket ligger, när det inte följer uppspelningen.' },
-      { type: 'range', key: 'timeOpacity', label: 'Opacitet', min: 0, max: 1, step: 0.01,
+      { type: 'range', key: 'timeOpacity', label: 'Opacitet (bildrutan som spelas)', min: 0, max: 1, step: 0.01,
         visible: () => ui.sliceTab === 'time', disabled: (p) => !p.timeOn,
-        info: 'Styrkan på ögonblicken med full styrka. Hur de tonar av mellan varandra ställs längre ner i fliken.' },
+        info: 'Styrkan på just den bildruta som spelas — ögonblicket kameran följer.' },
+      { type: 'range', key: 'timeFullOpacity', label: 'Opacitet (fulla ögonblick)', min: 0, max: 1, step: 0.01,
+        visible: () => ui.sliceTab === 'time', disabled: (p) => !p.timeOn || p.timeCount < 2,
+        info: 'Styrkan på de övriga ögonblicken med full styrka. Den spelade bildrutan har sitt eget reglage ovanför.' },
       { type: 'note', text: 'Höj Antal över 1 för fler ögonblick genom lådan — då vaknar mönstret mellan dem.',
         visible: (p) => ui.sliceTab === 'time' && p.timeOn && p.timeCount < 2 },
       { type: 'note', text: 'Hög opacitet gör att det främsta ögonblicket skymmer de bakom — sänk den för att se flera.',
@@ -1133,10 +1147,10 @@ const sections = [
       // och bågen går mellan de två.
       { type: 'range', key: 'timeRestOpacity', label: 'Opacitet mellan ögonblicken', min: 0, max: 1, step: 0.01,
         visible: () => ui.sliceTab === 'time', disabled: (p) => !p.timeOn || p.timeCount < 2,
-        info: 'Var mönstret bottnar mellan de fulla ögonblicken; Opacitet högre upp är topparnas nivå.' },
-      { type: 'note', text: 'Ligger opaciteten emellan i nivå med ögonblicken blir rampen platt — sänk den för att få tillbaka bågen.',
+        info: 'Var mönstret bottnar mellan de fulla ögonblicken; topparna styrs av de två opacitetsreglagen högre upp.' },
+      { type: 'note', text: 'Ligger opaciteten emellan i nivå med de fulla ögonblicken blir rampen platt — sänk den för att få tillbaka bågen.',
         visible: (p) => ui.sliceTab === 'time' && p.timeOn && p.timeCount >= 2
-          && p.timeRestOpacity >= p.timeOpacity },
+          && p.timeRestOpacity >= p.timeFullOpacity },
       { type: 'range', key: 'timeCurve', label: 'Bågens form', min: 0.2, max: 5, step: 0.05,
         visible: () => ui.sliceTab === 'time', disabled: (p) => !p.timeOn || p.timeCount < 2,
         info: 'Kurvan mellan full styrka och botten: låga värden ger breda toppar som nästan möts, höga ger spetsiga toppar.' },

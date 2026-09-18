@@ -59,6 +59,7 @@ uniform float uTimeCount;
 uniform float uTimePos;
 uniform float uTimeOpacity;
 uniform float uTimeRestOpacity;
+uniform float uTimeFullOpacity;
 uniform float uTimeFull;
 uniform float uTimeCurve;
 uniform float uSharpTol;
@@ -105,8 +106,10 @@ vec3 volumeAt(vec3 p, float offset) {
 // blir svart och bara det som rör sig syns inne i lådan.
 vec3 sampleVol(vec3 p) {
   vec3 c = volumeAt(p, 0.0);
-  if (uContent == 1) return abs(volumeAt(p, uFrameStep) - c) * uMotionGain;
-  return c;
+  if (uContent == 0) return c;
+  vec3 motion = abs(volumeAt(p, uFrameStep) - c) * uMotionGain;
+  // 2 = bild och rörelse ihop: bilden i botten, rörelsebanorna lyser ovanpå.
+  return uContent == 1 ? motion : c + motion;
 }
 
 float filledAt(vec3 p) { return step(timeAt(p), uFilled); }
@@ -233,7 +236,9 @@ float sliceAlpha(float sliceIndex) {
   float phase = sliceIndex * uTimeFull / max(uTimeCount, 1.0);
   float toNearest = abs(phase - floor(phase + 0.5));
   float arc = pow(0.5 + 0.5 * cos(6.2831853 * toNearest), uTimeCurve);
-  return mix(uTimeRestOpacity, uTimeOpacity, arc);
+  // Bildrutan som spelas (snitt 0) har sin egen nivå; övriga toppar sin.
+  float peak = abs(sliceIndex) < 0.5 ? uTimeOpacity : uTimeFullOpacity;
+  return mix(uTimeRestOpacity, peak, arc);
 }
 
 // Första snittplanet som strålen korsar i [tA, tB), annars -1.
@@ -371,7 +376,7 @@ void main() {
         } else if (uBlend == 1) {
           // Allt längs strålen lyser ihop, så mitten fylls i stället för att bli ett medelvärde.
           // Automatisk exponering gäller bilden; i rörelseläget styr rörelsekänsligheten.
-          float gain = uContent == 0 ? uAutoGain : 1.0;
+          float gain = uContent != 1 ? uAutoGain : 1.0;
           extra += (1.0 - acc) * s * k * uDensity * gain * dt * worldPerUnit;
         } else {
           // Det ljusaste längs strålen vinner, vilket lyfter fram innehållet i mitten.
