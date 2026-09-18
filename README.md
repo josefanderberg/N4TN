@@ -57,6 +57,8 @@ tillbaka efter en ändring (dubbelklick på reglaget återställer det).
   blir svart, och det som rör sig ritar banor genom lådan. Det är det som ger innehåll i mitten;
   i bildläget blir mitten annars summan av allt och därmed en jämn gröt utan struktur.
   **Rörelsekänslighet** styr hur mycket små rörelser förstärks.
+* **Rörelsedimma** — en självlysande dimma som glöder där det rör sig i klippet, ovanpå
+  vilket innehållsläge som helst, så att banorna syns genom lådan.
 * **Bild** — råa bildrutor. Ger den lugnare, rökiga looken där lådans ytor dominerar.
 * **Bild + rörelse** — bilden i botten och rörelsebanorna lysande ovanpå.
 
@@ -67,7 +69,8 @@ syns samtidigt. **Antal** lägger ut dem med jämna mellanrum, och alla följer 
 **Loopa genom lådan** vänder på det: snitten står still och klippet rullar cykliskt igenom —
 bildrutan som spelats förbi kommer in längst bak igen, och kameran behöver aldrig flytta sig.
 **Följda bildrutans läge** väljer var i lådan den spelade bildrutan står: längst fram, i
-mitten eller längst bak.
+mitten eller längst bak. **Mjuka skarven** blandar klippets slut och början över en ställbar
+andel, så att brytningen som annars vandrar genom lådan försvinner.
 Opaciteten ställs i två reglage: ett för **bildrutan som spelas** och ett för de övriga
 **fulla ögonblicken**, så att det följda ögonblicket kan lysa för sig. **Dynamisk opacitet**
 är ett trappsteg: varje fullt ögonblick tappar så mycket i styrka för varje steg bort från

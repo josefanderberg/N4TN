@@ -33,6 +33,8 @@ uniform float uTimeDir;
 uniform int uContent;
 uniform float uFrameStep;
 uniform float uMotionGain;
+// Självlysande dimma där det rör sig i klippet, oavsett innehållsläge.
+uniform float uMotionMist;
 // 0 = genomskinlig (medelvärde), 1 = adderande, 2 = maxljus
 uniform int uBlend;
 uniform float uDensity;
@@ -60,6 +62,8 @@ uniform float uTimeCount;
 // uTimeAnchor är var i lådan den spelade bildrutan ligger (0 fram, 1 bak).
 uniform float uTimeLoop;
 uniform float uTimeAnchor;
+// Hur stor del av klippet som blandas över skarven i loopläget.
+uniform float uSeamBlend;
 uniform float uTimePos;
 uniform float uTimeOpacity;
 uniform float uTimeRestOpacity;
@@ -125,9 +129,24 @@ float timeDelta(float t) {
   return d;
 }
 
+vec3 volTex(vec2 xy, float t) {
+  return texture(uVolume, vec3(xy, t)).rgb;
+}
+
+// Skarven i loopläget: där klippets slut möter dess början vandrar en brytning
+// genom lådan. Nära skarven blandas andra sidan in (texturen klampar t utanför
+// 0..1 till första/sista bildrutan), så flödet blir sömlöst.
+vec3 volTexLoop(vec2 xy, float t) {
+  if (uTimeLoop < 0.5 || uSeamBlend <= 0.001) return volTex(xy, t);
+  float w = uSeamBlend;
+  if (t < w) return mix(volTex(xy, t), volTex(xy, t + 1.0), 0.5 * (1.0 - t / w));
+  if (t > 1.0 - w) return mix(volTex(xy, t), volTex(xy, t - 1.0), 0.5 * (1.0 - (1.0 - t) / w));
+  return volTex(xy, t);
+}
+
 vec3 volumeAt(vec3 p, float offset) {
   vec3 u = unwarp(p);
-  return texture(uVolume, vec3(u.x + 0.5, 0.5 - u.y, timeAt(p) + offset)).rgb;
+  return volTexLoop(vec2(u.x + 0.5, 0.5 - u.y), timeAt(p) + offset);
 }
 
 // I läget Rörelse visas skillnaden mot nästa bildruta, så stillastående bakgrund
@@ -350,6 +369,7 @@ void main() {
   float acc = 0.0;
   vec3 glass = vec3(0.0);
   vec3 extra = vec3(0.0);
+  vec3 mist = vec3(0.0);
 
   // Framsidans glasyta: fresnel-reflex, lätt regnbågsskimmer och kantglöd.
   float fresIn = 1.0 - abs(dot(nIn, rdW));
@@ -413,7 +433,7 @@ void main() {
       uv = clamp((uv - 0.5) / taperAt(p.z) + 0.5, 0.0, 1.0);
       vec3 c = (uHasVideo > 0.5 && abs(sliceIndex) < 0.5)
         ? texture(uVideo, uv).rgb
-        : texture(uVolume, vec3(uv.x, 1.0 - uv.y, sliceTime)).rgb;
+        : volTexLoop(vec2(uv.x, 1.0 - uv.y), sliceTime);
       over(col, acc, grade(c), sliceAlpha(sliceIndex)
         * sliceWaveAt(sliceTime) * step(sliceTime, uFilled) * edgeAtTime(sliceTime));
       ts += 1e-6;
@@ -441,6 +461,13 @@ void main() {
     if (t < b.y) {
       vec3 p = vOrigin + rd * t;
       if (timeAt(p) <= uFilled) {
+        // Dimman lyser där bilden ändras mellan bildrutorna: en mjuk glöd som
+        // följer rörelsen genom lådan, ovanpå vilket innehållsläge som helst.
+        if (uMotionMist > 0.001) {
+          vec3 mv = abs(volumeAt(p, uFrameStep) - volumeAt(p, 0.0));
+          mist += (1.0 - acc) * grade(mv) * uMotionMist * 3.0
+            * waveAt(p) * edgeAt(p) * dt * worldPerUnit;
+        }
         vec3 s = grade(sampleVol(p));
         float k = mix(1.0, 0.25 + 1.5 * luma(s), uLumWeight) * waveAt(p) * edgeAt(p);
         if (uBlend == 0) {
@@ -471,7 +498,8 @@ void main() {
 
   // Adderande läge rullar av mjukt i toppen, annars bränns ljusa klipp ut till vitt.
   if (uBlend == 1) extra = 1.0 - exp(-extra);
-  col += extra + glass;
-  outColor = vec4(col, clamp(acc + luma(extra) + luma(glass), 0.0, 1.0));
+  mist = 1.0 - exp(-mist);
+  col += extra + glass + mist;
+  outColor = vec4(col, clamp(acc + luma(extra) + luma(glass) + luma(mist), 0.0, 1.0));
 }
 `;
