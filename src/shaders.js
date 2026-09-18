@@ -72,9 +72,12 @@ uniform float uEdgeFade;
 uniform float uSliceWave;
 uniform float uSliceWaveWidth;
 uniform float uTilt;
+// Höjdledslutningen: ögonblicken lutar fram och bak med kamerans elevation.
+uniform float uTiltV;
 // Snittens egen bredd i världsmått: vid vridning är lådan smalare än snitten
 // är breda, så bredden kan inte läsas ur uScale.x.
 uniform float uSliceW;
+uniform float uSliceH;
 uniform float uXCount;
 uniform float uXPos;
 uniform float uYCount;
@@ -312,11 +315,17 @@ void main() {
       shellFor(maskIn, pIn) * grazing(fresIn) * filledAt(pIn) * edgeAt(pIn));
   }
 
-  // Djupsnitten kan vara vridna kring höjdaxeln. Planen definieras av sin
-  // lutade normal i världsrymd, men skär tidsaxeln på samma ställen som förut,
-  // så att ordningen och tiderna är oförändrade.
-  vec3 tiltN = vec3(sin(uTilt), 0.0, cos(uTilt));
-  vec3 tiltR = vec3(cos(uTilt), 0.0, -sin(uTilt));
+  // Djupsnitten kan vridas kring höjdaxeln (uTilt) och luta fram/bak kring
+  // sidaxeln (uTiltV). Planen definieras av sin lutade normal i världsrymd,
+  // men skär tidsaxeln på samma ställen som förut, så att ordningen och
+  // tiderna är oförändrade. tiltR och tiltU är snittets egna axlar.
+  float ca = cos(uTilt);
+  float sa = sin(uTilt);
+  float cb = cos(uTiltV);
+  float sb = sin(uTiltV);
+  vec3 tiltN = vec3(sa * cb, -sb, ca * cb);
+  vec3 tiltR = vec3(ca, 0.0, -sa);
+  vec3 tiltU = vec3(sa * sb, cb, ca * sb);
   float cZero = tiltN.z * ((0.5 - uTimePos) * uTimeDir) * uScale.z;
   float cStep = tiltN.z * uScale.z / max(uTimeCount, 1.0);
 
@@ -350,7 +359,8 @@ void main() {
       // Vridna snitt går från vägg till vägg — utanför bildrutan smetas
       // kanten ut, som på väggarna — och kapas av lådans fram- och baksida.
       // Tratten skalar bildrutan kring sin mitt på det djupet.
-      vec2 uv = vec2(dot(p * uScale, tiltR) / uSliceW + 0.5, p.y + 0.5);
+      vec2 uv = vec2(dot(p * uScale, tiltR) / uSliceW + 0.5,
+                     dot(p * uScale, tiltU) / uSliceH + 0.5);
       uv = clamp((uv - 0.5) / taperAt(p.z) + 0.5, 0.0, 1.0);
       vec3 c = (uHasVideo > 0.5 && abs(sliceIndex) < 0.5)
         ? texture(uVideo, uv).rgb
