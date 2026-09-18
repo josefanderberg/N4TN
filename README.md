@@ -64,6 +64,10 @@ tillbaka efter en ändring (dubbelklick på reglaget återställer det).
 
 Ögonblicken är tidssnitten: bildrutor som skarpa plan tvärs genom lådan, så att flera tider
 syns samtidigt. **Antal** lägger ut dem med jämna mellanrum, och alla följer uppspelningen.
+**Loopa genom lådan** vänder på det: snitten står still och klippet rullar cykliskt igenom —
+bildrutan som spelats förbi kommer in längst bak igen, och kameran behöver aldrig flytta sig.
+**Följda bildrutans läge** väljer var i lådan den spelade bildrutan står: längst fram, i
+mitten eller längst bak.
 Opaciteten ställs i två reglage: ett för **bildrutan som spelas** och ett för de övriga
 **fulla ögonblicken**, så att det följda ögonblicket kan lysa för sig. **Dynamisk opacitet**
 är ett trappsteg: varje fullt ögonblick tappar så mycket i styrka för varje steg bort från
@@ -137,7 +141,8 @@ vridningen, och **Hur mycket** skalar den — kring halv styrka syns lutningen t
 Under Ögonblick → Sidled kan snitten vinklas mot mitten: **Vinkla mot mitten (solfjäder)**
 gör dem till plan genom lådans mittaxel, jämnt spridda i vinkel, i stället för att gå rakt
 igenom — som bladen i en hologramfläkt. **Position** vrider solfjädern, **Svep automatiskt**
-snurrar den runt axeln och **Snurrhastighet** styr hur fort.
+snurrar den runt axeln, **Snurrhastighet** styr hur fort och **Centrum (fram–bak)** flyttar
+axeln i djupled.
 
 ### Följ tidssnittet
 

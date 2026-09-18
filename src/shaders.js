@@ -56,6 +56,10 @@ uniform float uEdgeGlow;
 
 // Varje riktning har ett snitt vid sin position plus fler med jämnt mellanrum 1 / antal.
 uniform float uTimeCount;
+// Loopläget: klippet rullar cykliskt genom lådan medan snitten står still.
+// uTimeAnchor är var i lådan den spelade bildrutan ligger (0 fram, 1 bak).
+uniform float uTimeLoop;
+uniform float uTimeAnchor;
 uniform float uTimePos;
 uniform float uTimeOpacity;
 uniform float uTimeRestOpacity;
@@ -81,6 +85,8 @@ uniform float uSliceH;
 uniform float uXCount;
 // Solfjädern: sidosnitten går genom lådans mittaxel i stället för rakt igenom.
 uniform float uXFan;
+// Var i djupled solfjäderns axel står (0 fram, 0,5 mitten, 1 bak).
+uniform float uXFanCenter;
 uniform float uXPos;
 uniform float uYCount;
 uniform float uXOpacity;
@@ -103,7 +109,21 @@ vec3 unwarp(vec3 p) {
 }
 
 // Tid (0..1) för en punkt; framsidan (z = +0.5) är start som standard.
-float timeAt(vec3 p) { return 0.5 - uTimeDir * p.z; }
+// I loopläget rullar tiden cykliskt: lådans plats mäts från ankaret och
+// läggs på uppspelningen, så det som spelats förbi kommer in längst bak.
+float timeAt(vec3 p) {
+  float b = 0.5 - uTimeDir * p.z;
+  if (uTimeLoop > 0.5) return fract(uTimePos + b - uTimeAnchor);
+  return b;
+}
+
+// Avstånd i tid från uppspelningen; cykliskt i loopläget, så att vågen
+// följer med runt skarven.
+float timeDelta(float t) {
+  float d = t - uTimePos;
+  if (uTimeLoop > 0.5) d = fract(d + 0.5) - 0.5;
+  return d;
+}
 
 vec3 volumeAt(vec3 p, float offset) {
   vec3 u = unwarp(p);
@@ -133,7 +153,7 @@ float edgeAt(vec3 p) { return edgeAtTime(timeAt(p)); }
 // Egen våg för djupsnitten, skild från vågen som gäller volymen och ytorna.
 float sliceWaveAt(float sliceTime) {
   if (uSliceWave <= 0.001) return 1.0;
-  float d = (sliceTime - uTimePos) / max(uSliceWaveWidth, 0.001);
+  float d = timeDelta(sliceTime) / max(uSliceWaveWidth, 0.001);
   return max(0.0, mix(1.0, exp(-d * d * 4.0), uSliceWave));
 }
 
@@ -143,7 +163,7 @@ float sliceWaveAt(float sliceTime) {
 // så att bara ett smalt fönster kring den spelande bildrutan blir kvar.
 float waveAt(vec3 p) {
   if (uWave <= 0.001) return 1.0;
-  float d = (timeAt(p) - uTimePos) / max(uWaveWidth, 0.001);
+  float d = timeDelta(timeAt(p)) / max(uWaveWidth, 0.001);
   return max(0.0, mix(1.0, exp(-d * d * 4.0), uWave));
 }
 
@@ -288,8 +308,9 @@ float nextWallSlice(float tA, float tB, float axO, float axD, float oz, float dz
 // färdriktningen och lösa ut t ur planet.
 float fanNext(float tA, float tB, vec3 o, vec3 d, float A, float B) {
   if (B <= 0.0) return -1.0;
-  float qA = atan((o.x + tA * d.x) * uScale.x, (o.z + tA * d.z) * uScale.z);
-  float qB = atan((o.x + tB * d.x) * uScale.x, (o.z + tB * d.z) * uScale.z);
+  float z0 = (0.5 - uXFanCenter) * uScale.z;
+  float qA = atan((o.x + tA * d.x) * uScale.x, (o.z + tA * d.z) * uScale.z - z0);
+  float qB = atan((o.x + tB * d.x) * uScale.x, (o.z + tB * d.z) * uScale.z - z0);
   float dq = qB - qA;
   if (dq > 3.14159265) dq -= 6.2831853;
   if (dq < -3.14159265) dq += 6.2831853;
@@ -299,7 +320,7 @@ float fanNext(float tA, float tB, vec3 o, vec3 d, float A, float B) {
   if (abs(v - qA) > abs(dq)) return -1.0;
   float cv = cos(v);
   float sv = sin(v);
-  float f0 = cv * o.x * uScale.x - sv * o.z * uScale.z;
+  float f0 = cv * o.x * uScale.x - sv * (o.z * uScale.z - z0);
   float fd = cv * d.x * uScale.x - sv * d.z * uScale.z;
   if (abs(fd) < 1e-7) return -1.0;
   float t = -f0 / fd;
@@ -352,7 +373,8 @@ void main() {
   vec3 tiltN = vec3(sa * cb, -sb, ca * cb);
   vec3 tiltR = vec3(ca, 0.0, -sa);
   vec3 tiltU = vec3(sa * sb, cb, ca * sb);
-  float cZero = tiltN.z * ((0.5 - uTimePos) * uTimeDir) * uScale.z;
+  float anchorB = uTimeLoop > 0.5 ? uTimeAnchor : uTimePos;
+  float cZero = tiltN.z * ((0.5 - anchorB) * uTimeDir) * uScale.z;
   float cStep = tiltN.z * uScale.z / max(uTimeCount, 1.0);
 
   float aT = 0.0, bT = 0.0;
@@ -382,6 +404,7 @@ void main() {
       vec3 p = vOrigin + rd * ts;
       float sliceIndex = (dot(tiltN, p * uScale) - cZero) / cStep;
       float sliceTime = uTimePos - uTimeDir * sliceIndex / max(uTimeCount, 1.0);
+      if (uTimeLoop > 0.5) sliceTime = fract(sliceTime);
       // Vridna snitt går från vägg till vägg — utanför bildrutan smetas
       // kanten ut, som på väggarna — och kapas av lådans fram- och baksida.
       // Tratten skalar bildrutan kring sin mitt på det djupet.
