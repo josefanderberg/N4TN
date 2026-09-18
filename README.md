@@ -38,7 +38,8 @@ Allt körs lokalt i webbläsaren. Ingen fil laddas upp någonstans.
 ## Reglagen
 
 Varje reglage har en liten **i**-knapp intill etiketten som fäller ut en förklaring av vad
-det ändrar.
+det ändrar, och ett litet streck på skalan som märker ut standardvärdet, så att du hittar
+tillbaka efter en ändring (dubbelklick på reglaget återställer det).
 
 | Grupp | Vad det gör |
 | --- | --- |
