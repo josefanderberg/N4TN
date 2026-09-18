@@ -40,8 +40,8 @@ Allt körs lokalt i webbläsaren. Ingen fil laddas upp någonstans.
 | Grupp | Vad det gör |
 | --- | --- |
 | **Sparade inställningar** | Namngivna uppsättningar av alla reglage: spara, hämta tillbaka, ta bort. Samt en kort kod för att dela eller flytta en uppsättning. |
-| **Volym** | Antal bildrutor och upplösning i 3D-texturen — fria tal, skriv vad du vill (2–512 bildrutor, 32–720 px). Djupet går till 50, vilket drar ut lådan till en lång korridor. Raden under visar vad valet kostar i minne och om volymen är byggd med just de värdena. Ändring kräver **Bygg om volym**, som går att trycka på så fort ett klipp är laddat — även med oförändrade värden, för att göra om ett bygge som blev fel eller avbröts. Här finns också lådans djup och tidsriktning. |
-| **Utseende** | Innehåll (bild/rörelse), blandning, densitet, toning vid klippets ändar, hur mycket ytorna syns, ljusstyrka, mättnad, glasreflex, kantglöd, kantlinjer, renderingskvalitet och bakgrundsfärg. |
+| **Volym** | Antal bildrutor och upplösning i 3D-texturen — fria tal, skriv vad du vill (2–512 bildrutor, 32–720 px). Djupet går till 50, vilket drar ut lådan till en lång korridor. Raden under visar vad valet kostar i minne och om volymen är byggd med just de värdena. Ändring kräver **Bygg om volym**, som går att trycka på så fort ett klipp är laddat — även med oförändrade värden, för att göra om ett bygge som blev fel eller avbröts. Här finns också lådans djup och tidsriktning, och längst ner lådans egna kanter: kantlinjer, kantglöd och bakgrundsfärg. |
+| **Utseende** | Innehåll (bild/rörelse), blandning, densitet, toning vid klippets ändar, hur mycket ytorna syns, ljusstyrka, mättnad, glasreflex och renderingskvalitet. |
 | **Snitt** | En flik per riktning: djupled (tiden), sidled (X) och höjdled (Y). Varje flik har antal, position, automatiskt svep och egen opacitet. Antalet går till 256 och styr hur många plan som läggs ut med jämna mellanrum; 0 stänger av riktningen och gråar ut resten av flikens reglage. |
 | **Special** | Vrider djupsnitten mot kameravinkeln, med håll och styrka. |
 | **Kamera** | Följ tidssnittet, fri musstyrning, pendel eller rotation, hastighet och brännvidd. |

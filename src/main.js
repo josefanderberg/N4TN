@@ -961,7 +961,7 @@ const sections = [
   {
     title: 'Volym',
     accent: '#7fd4c1',
-    hint: 'Hur många bildrutor lådan byggs av, och hur djup den blir.',
+    hint: 'Hur många bildrutor lådan byggs av, hur djup den blir och hur kanterna ser ut.',
     items: [
       { type: 'number', key: 'frames', label: 'Bildrutor', min: 2, max: 512, step: 1 },
       { type: 'number', key: 'size', label: 'Upplösning (px)', min: 32, max: 720, step: 1 },
@@ -973,6 +973,10 @@ const sections = [
       ], disabled: () => noVideo() || state.building },
       { type: 'range', key: 'depth', label: 'Djup (tid)', min: 0.2, max: 50, step: 0.05 },
       { type: 'checkbox', key: 'flipTime', label: 'Vänd tidsriktning' },
+      // Lådans egna kanter och rummet runt den hör ihop med lådan, inte med bilden.
+      { type: 'range', key: 'lines', label: 'Kantlinjer', min: 0, max: 1, step: 0.01 },
+      { type: 'range', key: 'edgeGlow', label: 'Kantglöd', min: 0, max: 2, step: 0.01 },
+      { type: 'color', key: 'background', label: 'Bakgrund' },
     ],
   },
   {
@@ -1009,10 +1013,7 @@ const sections = [
       { type: 'range', key: 'brightness', label: 'Ljusstyrka', min: 0.2, max: 3, step: 0.01 },
       { type: 'range', key: 'saturation', label: 'Mättnad', min: 0, max: 2, step: 0.01 },
       { type: 'range', key: 'glass', label: 'Glasreflex', min: 0, max: 2, step: 0.01 },
-      { type: 'range', key: 'edgeGlow', label: 'Kantglöd', min: 0, max: 2, step: 0.01 },
-      { type: 'range', key: 'lines', label: 'Kantlinjer', min: 0, max: 1, step: 0.01 },
       { type: 'range', key: 'steps', label: 'Kvalitet (steg)', min: 48, max: 360, step: 1 },
-      { type: 'color', key: 'background', label: 'Bakgrund' },
     ],
   },
   {
