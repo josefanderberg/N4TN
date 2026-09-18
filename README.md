@@ -58,12 +58,14 @@ tillbaka efter en ändring (dubbelklick på reglaget återställer det).
   i bildläget blir mitten annars summan av allt och därmed en jämn gröt utan struktur.
   **Rörelsekänslighet** styr hur mycket små rörelser förstärks.
 * **Bild** — råa bildrutor. Ger den lugnare, rökiga looken där lådans ytor dominerar.
+* **Bild + rörelse** — bilden i botten och rörelsebanorna lysande ovanpå.
 
 ### Ögonblicken
 
 Ögonblicken är tidssnitten: bildrutor som skarpa plan tvärs genom lådan, så att flera tider
 syns samtidigt. **Antal** lägger ut dem med jämna mellanrum, och alla följer uppspelningen.
-**Opacitet** är nivån på ögonblicken med full styrka.
+Opaciteten ställs i två reglage: ett för **bildrutan som spelas** och ett för de övriga
+**fulla ögonblicken**, så att det följda ögonblicket kan lysa för sig.
 
 ### Mönstret mellan ögonblicken
 
