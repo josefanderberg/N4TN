@@ -38,8 +38,17 @@ uniform int uBlend;
 uniform float uDensity;
 uniform float uAutoGain;
 uniform float uLumWeight;
+// Varje sida av lådan har sin egen ytstyrka.
 uniform float uShellFront;
 uniform float uShellBack;
+uniform float uShellLeft;
+uniform float uShellRight;
+uniform float uShellTop;
+uniform float uShellBottom;
+// Tratten: fram- och baksidans storlek (normerade så att den större är 1).
+// Tvärsnittet i x/y skalas med w(z) = mix(uSizeBack, uSizeFront, z + 0.5).
+uniform float uSizeFront;
+uniform float uSizeBack;
 uniform float uBrightness;
 uniform float uSaturation;
 uniform float uGlass;
@@ -62,10 +71,6 @@ uniform float uTilt;
 // Snittens egen bredd i världsmått: vid vridning är lådan smalare än snitten
 // är breda, så bredden kan inte läsas ur uScale.x.
 uniform float uSliceW;
-// Tratten: tvärsnittet i x/y skalas med w(z) = uTaperC + uTaperM·z, så att
-// framsidan (z = +0.5) och baksidan (z = −0.5) kan ha olika storlek.
-uniform float uTaperM;
-uniform float uTaperC;
 uniform float uXCount;
 uniform float uXPos;
 uniform float uYCount;
@@ -78,7 +83,8 @@ uniform float uYOpacity;
 
 float luma(vec3 c) { return dot(c, vec3(0.2126, 0.7152, 0.0722)); }
 
-float taperAt(float z) { return uTaperC + uTaperM * z; }
+// Bildens skala på ett givet djup.
+float taperAt(float z) { return mix(uSizeBack, uSizeFront, z + 0.5); }
 
 // Från trattens rum till enhetskuben: bilden fyller varje tvärsnitt, så den
 // växer och krymper med formen genom lådan.
@@ -153,8 +159,8 @@ void clipPlane(vec3 o, vec3 d, vec3 n, float dist, inout float t0, inout float t
 vec2 hitBox(vec3 o, vec3 d) {
   float t0 = -1e9;
   float t1 = 1e9;
-  float hm = 0.5 * uTaperM;
-  float hc = 0.5 * uTaperC;
+  float hm = 0.5 * (uSizeFront - uSizeBack);
+  float hc = 0.25 * (uSizeFront + uSizeBack);
   clipPlane(o, d, vec3(0.0, 0.0, 1.0), 0.5, t0, t1);
   clipPlane(o, d, vec3(0.0, 0.0, -1.0), 0.5, t0, t1);
   clipPlane(o, d, vec3(1.0, 0.0, -hm), hc, t0, t1);
@@ -165,14 +171,16 @@ vec2 hitBox(vec3 o, vec3 d) {
 }
 
 // Ytnormal och axelmask för en punkt på trattens yta. Sidorna lutar med
-// trattens vinkel; masken säger vilken axel ytan hör till, för kantglöden.
+// trattens vinkel; masken säger vilken axel ytan hör till, för kantglöden
+// och för valet av sidans egen ytstyrka.
 void surfInfo(vec3 p, out vec3 n, out vec3 axisMask) {
   vec3 a = abs(unwarp(p));
+  float hm = 0.5 * (uSizeFront - uSizeBack);
   if (a.x >= a.y && a.x >= a.z) {
-    n = vec3(sign(p.x), 0.0, -0.5 * uTaperM);
+    n = vec3(sign(p.x), 0.0, -hm);
     axisMask = vec3(1.0, 0.0, 0.0);
   } else if (a.y >= a.z) {
-    n = vec3(0.0, sign(p.y), -0.5 * uTaperM);
+    n = vec3(0.0, sign(p.y), -hm);
     axisMask = vec3(0.0, 1.0, 0.0);
   } else {
     n = vec3(0.0, 0.0, sign(p.z));
@@ -180,6 +188,14 @@ void surfInfo(vec3 p, out vec3 n, out vec3 axisMask) {
   }
   // Skalningen är olika per axel, så normalen följer med som n / uScale.
   n = normalize(n / uScale);
+}
+
+// Ytstyrkan för lådans fasta sidor: fram/bak är kortsidorna av tiden,
+// vänster/höger och tak/botten är de utsmetade bildkanterna.
+float shellFor(vec3 axisMask, vec3 p) {
+  if (axisMask.z > 0.5) return p.z > 0.0 ? uShellFront : uShellBack;
+  if (axisMask.x > 0.5) return p.x > 0.0 ? uShellRight : uShellLeft;
+  return p.y > 0.0 ? uShellTop : uShellBottom;
 }
 
 // Avstånd (i världsenheter) från en punkt på en sida till sidans närmaste kant.
@@ -240,7 +256,7 @@ float nextWallSlice(float tA, float tB, float axO, float axD, float oz, float dz
   float v = qB > qA
     ? A + ceil((qA - A) / B) * B
     : A + floor((qA - A) / B) * B;
-  float den = axD - v * uTaperM * dz;
+  float den = axD - v * (uSizeFront - uSizeBack) * dz;
   if (abs(den) < 1e-7) return -1.0;
   float t = (v * taperAt(oz) - axO) / den;
   return (t >= tA && t < tB) ? t : -1.0;
@@ -278,7 +294,7 @@ void main() {
     glass += tint * f * uGlass;
     glass += vec3(0.85, 0.95, 1.0) * exp(-edgeDist(pIn, maskIn) * 28.0) * uEdgeGlow * 0.5;
     over(col, acc, grade(sampleVol(pIn)),
-      uShellFront * grazing(fresIn) * filledAt(pIn) * waveAt(pIn) * edgeAt(pIn));
+      shellFor(maskIn, pIn) * grazing(fresIn) * filledAt(pIn) * edgeAt(pIn));
   }
 
   // Djupsnitten kan vara vridna kring höjdaxeln. Planen definieras av sin
@@ -317,11 +333,11 @@ void main() {
       float sliceIndex = (dot(tiltN, p * uScale) - cZero) / cStep;
       float sliceTime = uTimePos - uTimeDir * sliceIndex / max(uTimeCount, 1.0);
       // Snittet behåller sin fulla bredd vid vridning; lådan är i stället
-      // avsmalnad så att snittet precis når från vägg till vägg. I tratten
-      // skalas bilden med tvärsnittet där snittet står.
-      float wp = taperAt(p.z);
-      vec2 uv = vec2(dot(p * uScale, tiltR) / (uSliceW * wp) + 0.5, p.y / wp + 0.5);
-      if (uv.x >= 0.0 && uv.x <= 1.0) {
+      // avsmalnad så att snittet precis når från vägg till vägg. Tratten
+      // skalar bildrutan kring sin mitt på det djupet.
+      vec2 uv = vec2(dot(p * uScale, tiltR) / uSliceW + 0.5, p.y + 0.5);
+      uv = (uv - 0.5) / taperAt(p.z) + 0.5;
+      if (uv.x >= 0.0 && uv.x <= 1.0 && uv.y >= 0.0 && uv.y <= 1.0) {
         vec3 c = (uHasVideo > 0.5 && abs(sliceIndex) < 0.5)
           ? texture(uVideo, uv).rgb
           : texture(uVolume, vec3(uv.x, 1.0 - uv.y, sliceTime)).rgb;
@@ -374,7 +390,7 @@ void main() {
   if (acc < 0.985) {
     float fresOut = 1.0 - abs(dot(nOut, rdW));
     over(col, acc, grade(sampleVol(pOut)),
-      uShellBack * grazing(fresOut) * filledAt(pOut) * waveAt(pOut) * edgeAt(pOut));
+      shellFor(maskOut, pOut) * grazing(fresOut) * filledAt(pOut) * edgeAt(pOut));
     glass += vec3(0.85, 0.95, 1.0) * exp(-edgeDist(pOut, maskOut) * 28.0) * uEdgeGlow * 0.25 * (1.0 - acc);
   }
 

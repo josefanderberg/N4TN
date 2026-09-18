@@ -26,14 +26,18 @@ const DEFAULTS = {
   specialAmount: 1,
   shellFront: 0.75,
   shellBack: 0.6,
+  shellLeft: 0.75,
+  shellRight: 0.75,
+  shellTop: 0.75,
+  shellBottom: 0.75,
+  sizeFront: 1,
+  sizeBack: 1,
   brightness: 1.1,
   saturation: 0.9,
   glass: 1,
   edgeGlow: 0.6,
   lines: 0.3,
   depth: 1.3,
-  sizeFront: 1,
-  sizeBack: 1,
   flipTime: false,
   steps: 200,
 
@@ -102,6 +106,7 @@ const ui = {
   waveTab: 'played',
   // Djupet över reglagets max öppnar det fria läget direkt.
   depthExpanded: params.depth > 5,
+  shellsOpen: false,
 };
 
 function loadPresets() {
@@ -237,11 +242,9 @@ function fitCamera() {
   let maxUp = 0;
   let maxDepth = 0;
   for (let i = 0; i < 8; i++) {
-    // Tratten: framsidans hörn (z = +0.5) skalas med Storlek fram, baksidans med bak.
-    const w = i & 4 ? params.sizeFront : params.sizeBack;
     _corner.set(
-      (i & 1 ? 0.5 : -0.5) * size.x * w,
-      (i & 2 ? 0.5 : -0.5) * size.y * w,
+      (i & 1 ? 0.5 : -0.5) * size.x,
+      (i & 2 ? 0.5 : -0.5) * size.y,
       (i & 4 ? 0.5 : -0.5) * size.z,
     );
     maxRight = Math.max(maxRight, Math.abs(_corner.dot(_right)));
@@ -997,18 +1000,42 @@ const sections = [
           onParamChange('depth');
         } },
       ], visible: () => ui.depthExpanded },
-      // Olika storlek fram och bak gör lådan till en tratt, åt valfritt håll.
-      { type: 'range', key: 'sizeFront', label: 'Storlek fram', min: 0.2, max: 3, step: 0.01,
-        info: 'Framsidans storlek. Skiljer den sig från Storlek bak blir lådan en tratt, och bilden växer eller krymper genom klippet.' },
-      { type: 'range', key: 'sizeBack', label: 'Storlek bak', min: 0.2, max: 3, step: 0.01,
-        info: 'Samma som Storlek fram, men för lådans baksida.' },
       { type: 'checkbox', key: 'flipTime', label: 'Vänd tidsriktning',
         info: 'Vänder tiden i lådan, så att klippets slut ligger längst fram.' },
+      // Olika storlek fram och bak drar ut lådan till en tratt, åt valfritt håll.
+      { type: 'range', key: 'sizeFront', label: 'Storlek fram', min: 0.2, max: 2, step: 0.01,
+        info: 'Framsidans storlek i förhållande till baksidan. Olika värden gör lådan till en tratt, så innehållet växer eller krymper genom flödet.' },
+      { type: 'range', key: 'sizeBack', label: 'Storlek bak', min: 0.2, max: 2, step: 0.01,
+        info: 'Baksidans storlek. Det är förhållandet mellan fram och bak som syns; lådan kramar alltid den större änden.' },
       // Lådans egna kanter och rummet runt den hör ihop med lådan, inte med bilden.
       { type: 'range', key: 'lines', label: 'Kantlinjer', min: 0, max: 1, step: 0.01,
         info: 'Trådramen runt lådan och konturerna kring ögonblicken.' },
       { type: 'range', key: 'edgeGlow', label: 'Kantglöd', min: 0, max: 2, step: 0.01,
         info: 'Ljusskimret längs lådans kanter.' },
+      // Ytorna och glaset: en yta per sida, hopfällda för att inte ta över panelen.
+      { type: 'fold', label: 'Ytor och glas',
+        get: () => ui.shellsOpen, set: (value) => { ui.shellsOpen = value; } },
+      { type: 'range', key: 'glass', label: 'Glasreflex', min: 0, max: 2, step: 0.01, pane: true,
+        visible: () => ui.shellsOpen,
+        info: 'Reflexen som får lådans ytor att skifta som glas när kameran rör sig.' },
+      { type: 'range', key: 'shellFront', label: 'Yta fram', min: 0, max: 1, step: 0.01, pane: true,
+        visible: () => ui.shellsOpen,
+        info: 'Framsidan — kortsidan där klippet börjar (eller slutar med vänd tidsriktning).' },
+      { type: 'range', key: 'shellBack', label: 'Yta bak', min: 0, max: 1, step: 0.01, pane: true,
+        visible: () => ui.shellsOpen,
+        info: 'Baksidan — den bortre kortsidan av tiden.' },
+      { type: 'range', key: 'shellLeft', label: 'Yta vänster', min: 0, max: 1, step: 0.01, pane: true,
+        visible: () => ui.shellsOpen,
+        info: 'Vänstra väggen: bildens vänsterkant utsmetad över tid.' },
+      { type: 'range', key: 'shellRight', label: 'Yta höger', min: 0, max: 1, step: 0.01, pane: true,
+        visible: () => ui.shellsOpen,
+        info: 'Högra väggen: bildens högerkant utsmetad över tid.' },
+      { type: 'range', key: 'shellTop', label: 'Yta tak', min: 0, max: 1, step: 0.01, pane: true,
+        visible: () => ui.shellsOpen,
+        info: 'Taket: bildens överkant utsmetad över tid.' },
+      { type: 'range', key: 'shellBottom', label: 'Yta botten', min: 0, max: 1, step: 0.01, pane: true,
+        visible: () => ui.shellsOpen,
+        info: 'Botten: bildens underkant utsmetad över tid.' },
       { type: 'color', key: 'background', label: 'Bakgrund',
         info: 'Färgen på rummet runt lådan.' },
     ],
@@ -1032,16 +1059,10 @@ const sections = [
         info: 'Hur tät volymen är. Högre gör lådan mer ogenomskinlig.' },
       { type: 'range', key: 'lumWeight', label: 'Ljusa partier tätare', min: 0, max: 1, step: 0.01,
         info: 'Låter ljusa partier väga tyngre än mörka, så att de tar över i blandningen.' },
-      { type: 'range', key: 'shellFront', label: 'Yta fram', min: 0, max: 1, step: 0.01,
-        info: 'Hur mycket lådans framsida syns — första bildrutans kanter utsmetade över tid.' },
-      { type: 'range', key: 'shellBack', label: 'Yta bak', min: 0, max: 1, step: 0.01,
-        info: 'Samma som Yta fram, men för lådans baksida.' },
       { type: 'range', key: 'brightness', label: 'Ljusstyrka', min: 0.2, max: 3, step: 0.01,
         info: 'Ljusstyrkan på allt innehåll i lådan.' },
       { type: 'range', key: 'saturation', label: 'Mättnad', min: 0, max: 2, step: 0.01,
         info: 'Färgmättnaden, från svartvitt till förstärkta färger.' },
-      { type: 'range', key: 'glass', label: 'Glasreflex', min: 0, max: 2, step: 0.01,
-        info: 'Reflexen som får lådans ytor att skifta som glas när kameran rör sig.' },
       { type: 'range', key: 'steps', label: 'Kvalitet (steg)', min: 48, max: 360, step: 1,
         info: 'Hur många steg strålarna tar genom lådan. Fler ger jämnare bild men tyngre rendering.' },
       { type: 'range', key: 'edgeFade', label: 'Tona in och ut vid ändarna', min: 0, max: 0.5, step: 0.005,

@@ -20,6 +20,7 @@ function lineMaterial(opacity) {
 function boxOutline(geometry, opacity) {
   const lines = new THREE.LineSegments(new THREE.EdgesGeometry(geometry), lineMaterial(opacity));
   lines.renderOrder = 2;
+  lines.frustumCulled = false;
   return lines;
 }
 
@@ -36,16 +37,19 @@ class SliceOutlines {
   }
 
   // De fyra hörnen för snittet vid `coord`. Tratten skalar hörnen med
-  // tvärsnittet w(z) där de står. Vridna ögonblick (bara djupled) blir
-  // parallellogram: snittets breddaxel klippt mot lådans väggar och
-  // fram-/baksida, så konturen följer exakt det som syns av snittet.
-  cornersFor(coord, taper, tilt) {
-    const w = (z) => taper.c + taper.m * z;
+  // tvärsnittet där de står, så sid- och höjdsnitten blir lutande fyrhörningar
+  // som följer väggarna. Vridna ögonblick (bara djupled) blir parallellogram:
+  // snittets breddaxel klippt mot lådans väggar och fram-/baksida, så konturen
+  // följer exakt det som syns av snittet.
+  cornersFor(coord, tilt, taper) {
+    const w = (z) => (taper ? taper.back + (z + 0.5) * (taper.front - taper.back) : 1);
     if (this.axis === 0) return RECT.map((c) => [coord * w(c[0]), c[1] * w(c[0]), c[0]]);
     if (this.axis === 1) return RECT.map((c) => [c[0] * w(c[1]), coord * w(c[1]), c[1]]);
-    if (!tilt) return RECT.map((c) => [c[0] * w(coord), c[1] * w(coord), coord]);
-    let dLo = -tilt.dHalf;
-    let dHi = tilt.dHalf;
+    // Tratten skalar snittets rektangel kring dess mitt på det djupet.
+    const s = w(coord);
+    if (!tilt) return RECT.map((c) => [c[0] * s, c[1] * s, coord]);
+    let dLo = -tilt.dHalf * s;
+    let dHi = tilt.dHalf * s;
     if (Math.abs(tilt.sinT) > 1e-6) {
       const a = ((coord - 0.5) * tilt.sz) / tilt.sinT;
       const b = ((coord + 0.5) * tilt.sz) / tilt.sinT;
@@ -59,16 +63,16 @@ class SliceOutlines {
       y,
       coord - (d * tilt.sinT) / tilt.sz,
     ];
-    return [at(dLo, -0.5), at(dHi, -0.5), at(dHi, 0.5), at(dLo, 0.5)];
+    return [at(dLo, -0.5 * s), at(dHi, -0.5 * s), at(dHi, 0.5 * s), at(dLo, 0.5 * s)];
   }
 
-  update(coords, taper, tilt = null) {
+  update(coords, tilt = null, taper = null) {
     const count = coords.length;
     this.lines.visible = count > 0 && count <= MAX_OUTLINES;
     if (!this.lines.visible) return;
     let offset = 0;
     for (const coord of coords) {
-      const pts = this.cornersFor(coord, taper, tilt);
+      const pts = this.cornersFor(coord, tilt, taper);
       for (let e = 0; e < 4; e++) {
         this.array.set(pts[e], offset);
         this.array.set(pts[(e + 1) % 4], offset + 3);
@@ -81,7 +85,8 @@ class SliceOutlines {
 }
 
 // Lådans skal som en tratt: tvärsnittet i x/y skalas med w(z), så att fram-
-// och baksidan kan ha olika storlek. Vid 1/1 är det den vanliga enhetskuben.
+// och baksidan kan ha olika storlek. Vid 1/1 är det den vanliga enhetskuben,
+// och trådramen faller ut ur samma geometri via EdgesGeometry.
 function frustumGeometry(front, back) {
   const geometry = new THREE.BoxGeometry(1, 1, 1);
   const position = geometry.attributes.position;
@@ -131,6 +136,12 @@ export class VolumeBox {
       uLumWeight: { value: 0.35 },
       uShellFront: { value: 0.75 },
       uShellBack: { value: 0.6 },
+      uShellLeft: { value: 0.75 },
+      uShellRight: { value: 0.75 },
+      uShellTop: { value: 0.75 },
+      uShellBottom: { value: 0.75 },
+      uSizeFront: { value: 1 },
+      uSizeBack: { value: 1 },
       uBrightness: { value: 1.1 },
       uSaturation: { value: 0.9 },
       uGlass: { value: 1 },
@@ -149,8 +160,6 @@ export class VolumeBox {
       uSliceWaveWidth: { value: 0.3 },
       uTilt: { value: 0 },
       uSliceW: { value: 1 },
-      uTaperM: { value: 0 },
-      uTaperC: { value: 1 },
       uXCount: { value: 1 },
       uXPos: { value: 0.5 },
       uXOpacity: { value: 0.3 },
@@ -216,19 +225,6 @@ export class VolumeBox {
     this._updateScale();
   }
 
-  // Skalet byggs om bara när storlekarna faktiskt ändras, inte varje bildruta.
-  _setTaper(front, back) {
-    if (front === this.taper.front && back === this.taper.back) return;
-    this.taper = { front, back };
-    this.uniforms.uTaperM.value = front - back;
-    this.uniforms.uTaperC.value = (front + back) / 2;
-    const geometry = frustumGeometry(front, back);
-    this.mesh.geometry.dispose();
-    this.mesh.geometry = geometry;
-    this.edges.geometry.dispose();
-    this.edges.geometry = new THREE.EdgesGeometry(geometry);
-  }
-
   // Kortaste sidan av bildplanet är alltid 1 enhet.
   get size() {
     const a = this.aspect;
@@ -243,10 +239,22 @@ export class VolumeBox {
     this.uniforms.uScale.value.copy(s);
   }
 
+  // Skalet och ramen byggs om bara när storlekarna faktiskt ändras, inte varje bildruta.
+  _setTaper(front, back) {
+    if (front === this.taper.front && back === this.taper.back) return;
+    this.taper = { front, back };
+    this.uniforms.uSizeFront.value = front;
+    this.uniforms.uSizeBack.value = back;
+    const geometry = frustumGeometry(front, back);
+    this.mesh.geometry.dispose();
+    this.mesh.geometry = geometry;
+    this.edges.geometry.dispose();
+    this.edges.geometry = new THREE.EdgesGeometry(geometry);
+  }
+
   // Anropas varje bildruta innan rendering.
   update(camera, p) {
     const u = this.uniforms;
-    this._setTaper(p.sizeFront, p.sizeBack);
 
     // Special: ett vridet ögonblick har smalare fotavtryck i sidled, så lådan
     // kramar snitten i stället för att klippa dem — varje snitt går obrutet
@@ -268,6 +276,16 @@ export class VolumeBox {
     u.uLumWeight.value = p.lumWeight;
     u.uShellFront.value = p.shellFront;
     u.uShellBack.value = p.shellBack;
+    u.uShellLeft.value = p.shellLeft;
+    u.uShellRight.value = p.shellRight;
+    u.uShellTop.value = p.shellTop;
+    u.uShellBottom.value = p.shellBottom;
+    // Tratten: bara förhållandet mellan fram och bak syns, så den större änden
+    // normeras till lådans fulla storlek.
+    const taperMax = Math.max(p.sizeFront, p.sizeBack);
+    const taperFront = p.sizeFront / taperMax;
+    const taperBack = p.sizeBack / taperMax;
+    this._setTaper(taperFront, taperBack);
     u.uBrightness.value = p.brightness;
     u.uSaturation.value = p.saturation;
     u.uGlass.value = p.glass;
@@ -297,16 +315,18 @@ export class VolumeBox {
     u.uCamPos.value.copy(_camLocal);
 
     const dir = p.flipTime ? -1 : 1;
-    const taper = { m: u.uTaperM.value, c: u.uTaperC.value };
-    this.slices[0].update(planeCoords(p.xPosEffective - 0.5, p.xCount), taper);
-    this.slices[1].update(planeCoords(p.yPosEffective - 0.5, p.yCount), taper);
+    const taper = taperFront === taperBack && taperFront === 1
+      ? null
+      : { front: taperFront, back: taperBack };
+    this.slices[0].update(planeCoords(p.xPosEffective - 0.5, p.xCount), null, taper);
+    this.slices[1].update(planeCoords(p.yPosEffective - 0.5, p.yCount), null, taper);
     // Så mycket av snittets halva bredd som ryms i den avsmalnade lådan.
     const dHalf = Math.min(0.5 * s.x, (0.5 * s.x * squeeze) / Math.max(Math.abs(cosT), 1e-6));
     const tiltInfo = p.tilt ? { cosT, sinT, sx: s.x, sz: s.z, squeeze, dHalf } : null;
     this.slices[2].update(
       planeCoords((0.5 - p.timePosEffective) * dir, p.timeOn ? p.timeCount : 0),
-      taper,
       tiltInfo,
+      taper,
     );
 
     this.edges.visible = p.lines > 0;
