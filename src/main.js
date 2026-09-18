@@ -23,6 +23,7 @@ const DEFAULTS = {
   sliceWaveWidth: 0.3,
   special: false,
   specialReverse: false,
+  specialVertical: false,
   specialAmount: 1,
   shellFront: 0.75,
   shellBack: 0.6,
@@ -336,14 +337,19 @@ function followSlice(timePos) {
 
 // Special: djupsnitten vrids mot kamerans vinkel kring mittpunkten, så att de
 // står på diagonalen men behåller sin ordning genom lådan.
+// Sidledsvridningen följer kamerans azimut; höjdledslutningen dess elevation,
+// så att ögonblicken även lutar fram och bak när man panorerar upp eller ner.
 function tiltFromCamera() {
-  if (!params.special) return 0;
-  const azimuth = Math.atan2(
-    camera.position.x - controls.target.x,
-    camera.position.z - controls.target.z,
-  );
+  const dx = camera.position.x - controls.target.x;
+  const dy = camera.position.y - controls.target.y;
+  const dz = camera.position.z - controls.target.z;
   const sign = params.specialReverse ? 1 : -1;
-  return sign * azimuth * params.specialAmount;
+  const azimuth = Math.atan2(dx, dz);
+  const elevation = Math.atan2(dy, Math.hypot(dx, dz));
+  return {
+    h: params.special ? sign * azimuth * params.specialAmount : 0,
+    v: params.specialVertical ? sign * elevation * params.specialAmount : 0,
+  };
 }
 
 // --- Renderloop ----------------------------------------------------------
@@ -369,7 +375,9 @@ function tick(timestamp) {
   frameParams.timePosEffective = params.timeFollow ? currentTimeFraction() : params.timePos;
   followSlice(frameParams.timePosEffective);
   updateCamera(dt);
-  frameParams.tilt = tiltFromCamera();
+  const tilt = tiltFromCamera();
+  frameParams.tilt = tilt.h;
+  frameParams.tiltV = tilt.v;
   frameParams.xPosEffective = params.xSweep
     ? 0.5 + 0.45 * Math.sin(state.sweepTime)
     : params.xPos;
@@ -1193,11 +1201,13 @@ const sections = [
     items: [
       { type: 'checkbox', key: 'special', label: 'Vrid ögonblicken efter kameran',
         info: 'Ögonblicken vrider sig mot kameran när den åker runt lådan. De går från vägg till vägg och kapas av lådans fram- och baksida.' },
+      { type: 'checkbox', key: 'specialVertical', label: 'Luta upp och ner (höjdled)',
+        info: 'Samma effekt i höjdled: ögonblicken lutar fram och bak när kameran panorerar upp eller ner.' },
       { type: 'checkbox', key: 'specialReverse', label: 'Motsatt håll',
-        disabled: (p) => !p.special,
+        disabled: (p) => !p.special && !p.specialVertical,
         info: 'Vrider åt andra hållet i förhållande till kameran.' },
       { type: 'range', key: 'specialAmount', label: 'Hur mycket', min: 0, max: 3, step: 0.01,
-        disabled: (p) => !p.special,
+        disabled: (p) => !p.special && !p.specialVertical,
         info: 'Hur långt mot kameravinkeln ögonblicken vrids.' },
     ],
   },

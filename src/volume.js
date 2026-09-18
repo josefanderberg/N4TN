@@ -48,22 +48,38 @@ class SliceOutlines {
     // Tratten skalar snittets rektangel kring dess mitt på det djupet.
     const s = w(coord);
     if (!tilt) return RECT.map((c) => [c[0] * s, c[1] * s, coord]);
-    let dLo = -tilt.dHalf * s;
-    let dHi = tilt.dHalf * s;
-    if (Math.abs(tilt.sinT) > 1e-6) {
-      const a = ((coord - 0.5) * tilt.sz) / tilt.sinT;
-      const b = ((coord + 0.5) * tilt.sz) / tilt.sinT;
+    // Snittets egna axlar: R i sidled (vridningen), U i höjdled (lutningen).
+    // Spannen når väggar, golv och tak; fram- och baksidan klipper i z:
+    // z(d, e) = coord + (−d·sa + e·ca·sb) / sz — först klipps d längs
+    // mittlinjen, sedan e så att båda d-ändarna ryms.
+    const { ca, sa, cb, sb, sx, sy, sz } = tilt;
+    let dHi = ((0.5 * sx) / Math.max(Math.abs(ca), 0.05)) * s;
+    let dLo = -dHi;
+    let eHi = ((0.5 * sy) / Math.max(Math.abs(cb), 0.05)) * s;
+    let eLo = -eHi;
+    if (Math.abs(sa) > 1e-6) {
+      const a = ((coord - 0.5) * sz) / sa;
+      const b = ((coord + 0.5) * sz) / sa;
       dLo = Math.max(dLo, Math.min(a, b));
       dHi = Math.min(dHi, Math.max(a, b));
     }
+    const zc = ca * sb;
+    if (Math.abs(zc) > 1e-6 && dLo < dHi) {
+      for (const d of [dLo, dHi]) {
+        const a = ((-0.5 - coord) * sz + d * sa) / zc;
+        const b = ((0.5 - coord) * sz + d * sa) / zc;
+        eLo = Math.max(eLo, Math.min(a, b));
+        eHi = Math.min(eHi, Math.max(a, b));
+      }
+    }
     // Helt utanför lådan: nollsegment, som inte ritar något.
-    if (dLo >= dHi) return RECT.map(() => [0, 0, coord]);
-    const at = (d, y) => [
-      (d * tilt.cosT) / tilt.sx,
-      y,
-      coord - (d * tilt.sinT) / tilt.sz,
+    if (dLo >= dHi || eLo >= eHi) return RECT.map(() => [0, 0, coord]);
+    const at = (d, e) => [
+      (d * ca + e * sa * sb) / sx,
+      (e * cb) / sy,
+      coord + (-d * sa + e * ca * sb) / sz,
     ];
-    return [at(dLo, -0.5 * s), at(dHi, -0.5 * s), at(dHi, 0.5 * s), at(dLo, 0.5 * s)];
+    return [at(dLo, eLo), at(dHi, eLo), at(dHi, eHi), at(dLo, eHi)];
   }
 
   update(coords, tilt = null, taper = null) {
@@ -161,7 +177,9 @@ export class VolumeBox {
       uSliceWave: { value: 0 },
       uSliceWaveWidth: { value: 0.3 },
       uTilt: { value: 0 },
+      uTiltV: { value: 0 },
       uSliceW: { value: 1 },
+      uSliceH: { value: 1 },
       uXCount: { value: 1 },
       uXPos: { value: 0.5 },
       uXOpacity: { value: 0.3 },
@@ -266,6 +284,7 @@ export class VolumeBox {
     this.group.scale.copy(s);
     u.uScale.value.copy(s);
     u.uSliceW.value = s.x;
+    u.uSliceH.value = s.y;
 
     u.uSteps.value = p.steps;
     u.uTimeDir.value = p.flipTime ? -1 : 1;
@@ -304,6 +323,7 @@ export class VolumeBox {
     u.uSliceWave.value = p.sliceWave;
     u.uSliceWaveWidth.value = p.sliceWaveWidth;
     u.uTilt.value = p.tilt;
+    u.uTiltV.value = p.tiltV;
     u.uXCount.value = p.xCount;
     u.uXPos.value = p.xPosEffective;
     u.uYCount.value = p.yCount;
@@ -323,9 +343,17 @@ export class VolumeBox {
     this.slices[0].update(planeCoords(p.xPosEffective - 0.5, p.xCount), null, taper);
     this.slices[1].update(planeCoords(p.yPosEffective - 0.5, p.yCount), null, taper);
     // Så mycket av snittets halva bredd som ryms i den avsmalnade lådan.
-    // Halva snittlängden fram till väggarna; nära på kant tar fram-/bakklippet vid.
-    const dHalf = (0.5 * s.x) / Math.max(Math.abs(cosT), 0.05);
-    const tiltInfo = p.tilt ? { cosT, sinT, sx: s.x, sz: s.z, dHalf } : null;
+    // Snittets båda vinklar till konturerna: vridning i sidled och lutning i
+    // höjdled. Spannen räknas där, fram till väggar, golv och tak.
+    const tiltInfo = (p.tilt || p.tiltV) ? {
+      ca: cosT,
+      sa: sinT,
+      cb: Math.cos(p.tiltV || 0),
+      sb: Math.sin(p.tiltV || 0),
+      sx: s.x,
+      sy: s.y,
+      sz: s.z,
+    } : null;
     this.slices[2].update(
       planeCoords((0.5 - p.timePosEffective) * dir, p.timeOn ? p.timeCount : 0),
       tiltInfo,

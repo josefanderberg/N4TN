@@ -43,7 +43,7 @@ const LEGACY = {
 const BASE = {
   frames: 144, size: 320, content: 1, motionGain: 8, blend: 1, density: 2.6,
   lumWeight: 0.4, wave: 0.7, waveWidth: 0.3, edgeFade: 0, sliceWave: 0, sliceWaveWidth: 0.3,
-  special: false, specialReverse: false, specialAmount: 1, shellFront: 0.75, shellBack: 0.6, brightness: 1.1, saturation: 0.9,
+  special: false, specialReverse: false, specialVertical: false, specialAmount: 1, shellFront: 0.75, shellBack: 0.6, brightness: 1.1, saturation: 0.9,
   shellLeft: 0.75, shellRight: 0.75, shellTop: 0.75, shellBottom: 0.75, sizeFront: 1, sizeBack: 1,
   glass: 1, edgeGlow: 0.6, lines: 0.3, steps: 200, depth: 1.3, flipTime: false,
   timeOn: true, timeCount: 1, timeFollow: true, timePos: 0, timeOpacity: 0.92, timeFull: 1, timeFade: 0.4, timeCurve: 1, timeRestOpacity: 0.55, timeFullOpacity: 0.92, timeGradient: 0,
@@ -121,6 +121,7 @@ const FIELDS = [
   ['sizeBack', 'f1', 0.2, 2, 0.01],
   ['timeFullOpacity', 'f1', 0, 1, 0.01],
   ['timeGradient', 'f1', 0, 1, 0.01],
+  ['specialVertical', 'b'],
 ];
 
 // Crockford base32: inga tecken som går att blanda ihop (I, L, O, U saknas),

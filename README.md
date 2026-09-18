@@ -46,7 +46,7 @@ tillbaka efter en ändring (dubbelklick på reglaget återställer det).
 | **Volym** | Sammanhanget: lådan som klippet byggs in i. Antal bildrutor och upplösning i 3D-texturen — fria tal, skriv vad du vill (2–512 bildrutor, 32–720 px). Raden under visar vad valet kostar i minne och om volymen är byggd med just de värdena. Ändring kräver **Bygg om volym**, som går att trycka på så fort ett klipp är laddat — även med oförändrade värden, för att göra om ett bygge som blev fel eller avbröts. Djupet är ett reglage upp till 5; **Utöka djupet…** öppnar ett fritt fält där du skriver vad du vill upp till 200. **Storlek fram/bak** gör lådan till en tratt: olika storlek på ändarna får innehållet att växa eller krympa genom flödet. Längst ner lådans egna kanter — kantlinjer och kantglöd — samt den vikbara gruppen **Ytor och glas** med glasreflexen och en yta per sida (fram, bak, vänster, höger, tak, botten) och bakgrundsfärgen. |
 | **Utseende** | Helheten inne i lådan: innehåll (bild/rörelse), blandning, densitet, ljusstyrka, mättnad, renderingskvalitet och sist toningen vid klippets ändar. |
 | **Ögonblick** | Bildrutorna som skarpa plan — flera tider samtidigt. En flik per riktning: djupled (tiden), sidled (X) och höjdled (Y), var och en med antal, position, uppspelning/svep och opacitet. Under Djupled ligger också mönstret mellan ögonblicken: vågen i två underflikar (Bildrutan som spelas och Övriga ögonblick) samt rampen — opacitet mellan ögonblicken, hur många som lyser för fullt och Bågens form. Antalet går till 256; 0 (eller avbockat) stänger av riktningen och gråar ut resten av flikens reglage. |
-| **Special** | Vrider ögonblicken mot kameravinkeln, med håll och styrka. |
+| **Special** | Vrider ögonblicken mot kameravinkeln — i sidled, i höjdled eller båda — med håll och styrka. |
 | **Kamera** | Följ ögonblicket, fri musstyrning, pendel eller rotation, hastighet och brännvidd. |
 | **Export** | Bildformat (1:1, 4:5, 9:16, 16:9), bildfrekvens, kvalitet, antal varv och om ljudet ska med. |
 | **Sparade inställningar** | Längst ner: namngivna uppsättningar av alla reglage — spara, hämta tillbaka, ta bort — samt en kort kod för att dela eller flytta en uppsättning. |
@@ -128,8 +128,9 @@ spara koden för de looks du bryr dig om, så kan du alltid få tillbaka dem.
 lådans mittpunkt, fast åt motsatt håll, så att de står på diagonalen men behåller sin ordning
 genom lådan. Lådan behåller sin fulla bredd: varje ögonblick sträcker sig från vägg till vägg
 — utanför bildrutan smetas kanten ut, som på väggarna — och kapas av lådans fram- och baksida.
-**Motsatt håll** vänder vridningen, och **Hur mycket** skalar den — kring halv styrka syns
-lutningen tydligast.
+**Luta upp och ner (höjdled)** gör samma sak kring sidaxeln: ögonblicken lutar fram och bak
+när kameran panorerar upp eller ner, och de två går att kombinera. **Motsatt håll** vänder
+vridningen, och **Hur mycket** skalar den — kring halv styrka syns lutningen tydligast.
 
 ### Följ tidssnittet
 
