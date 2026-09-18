@@ -2,12 +2,14 @@
 // och inte har någon server som kan lagra dem. Bara värden som skiljer sig från
 // referensen nedan skrivs med, vilket håller koden kort.
 
-export const CODE_VERSION = 6;
+export const CODE_VERSION = 7;
 
 // Fält som betydde något annat i en äldre kodversion. Nyckeln är versionen,
 // värdet är fältets dåvarande beskrivning.
 // Vågen låg i en byte, vilket inte räckte för hundradelar i intervallet 0-4.
 const GROV_VAG = { wave: ['wave', 'f1', 0, 4, 0.01] };
+// Djupet gick till 50 innan det fria läget släppte det till 200.
+const DJUP_50 = { depth: ['depth', 'f2', 0.2, 50, 0.05] };
 
 const SMA_ANTAL = {
   timeCount: ['timeCount', 'i1'],
@@ -24,7 +26,10 @@ const LEGACY = {
   2: { depth: ['depth', 'f1', 0.2, 4, 0.05], ...SMA_ANTAL, ...GROV_VAG },
   3: { depth: ['depth', 'f1', 0.2, 10, 0.05], ...SMA_ANTAL, ...GROV_VAG },
   4: { depth: ['depth', 'f1', 0.2, 10, 0.05], ...GROV_VAG },
-  5: { ...GROV_VAG },
+  5: { ...GROV_VAG, ...DJUP_50 },
+  // 6: uttoningen mellan djupsnitten var relativ (timeFade) och räknas om till
+  // timeRestOpacity vid inläsning; djupet gick fortfarande bara till 50.
+  6: { ...DJUP_50 },
 };
 
 // Referensvärden som koden räknar skillnad mot. De är FRYSTA: ändras appens
@@ -34,7 +39,7 @@ const BASE = {
   lumWeight: 0.4, wave: 0.7, waveWidth: 0.3, edgeFade: 0, sliceWave: 0, sliceWaveWidth: 0.3,
   special: false, specialReverse: false, specialAmount: 1, shellFront: 0.75, shellBack: 0.6, brightness: 1.1, saturation: 0.9,
   glass: 1, edgeGlow: 0.6, lines: 0.3, steps: 200, depth: 1.3, flipTime: false,
-  timeOn: true, timeCount: 1, timeFollow: true, timePos: 0, timeOpacity: 0.92, timeFull: 1, timeFade: 0.4, timeCurve: 1,
+  timeOn: true, timeCount: 1, timeFollow: true, timePos: 0, timeOpacity: 0.92, timeFull: 1, timeFade: 0.4, timeCurve: 1, timeRestOpacity: 0.55,
   xCount: 0, xPos: 0.5, xSweep: false, xOpacity: 0.3,
   yCount: 0, yPos: 0.5, ySweep: false, yOpacity: 0.3, axisOpacity: 0.3,
   speed: 1, followSlice: true, motion: 'free', motionSpeed: 0.5, fov: 32, background: '#000000',
@@ -60,7 +65,7 @@ const FIELDS = [
   ['edgeGlow', 'f1', 0, 2, 0.01],
   ['lines', 'f1', 0, 1, 0.01],
   ['steps', 'i2'],
-  ['depth', 'f2', 0.2, 50, 0.05],
+  ['depth', 'f2', 0.2, 200, 0.01],
   ['flipTime', 'b'],
   ['timeOn', 'b'],
   ['timeCount', 'i2'],
@@ -88,6 +93,7 @@ const FIELDS = [
   ['xOpacity', 'f1', 0, 1, 0.01],
   ['ySweep', 'b'],
   ['yOpacity', 'f1', 0, 1, 0.01],
+  // Utgått: relativ uttoning mellan snitten. Platsen behålls så gamla koder går att läsa.
   ['timeFade', 'f1', 0, 1, 0.01],
   ['timeFull', 'i1'],
   ['timeCurve', 'f1', 0.2, 5, 0.05],
@@ -99,6 +105,7 @@ const FIELDS = [
   ['special', 'b'],
   ['specialReverse', 'b'],
   ['specialAmount', 'f1', 0, 1.5, 0.01],
+  ['timeRestOpacity', 'f1', 0, 1, 0.01],
 ];
 
 // Crockford base32: inga tecken som går att blanda ihop (I, L, O, U saknas),
@@ -265,5 +272,13 @@ export function decodeSettings(code) {
     if (values.yOpacity === undefined) values.yOpacity = values.axisOpacity;
     delete values.axisOpacity;
   }
+  // Koder från när uttoningen var relativ: bottenopaciteten är topp × (1 − uttoning).
+  if (version < 7 && values.timeRestOpacity === undefined
+    && (values.timeFade !== undefined || values.timeOpacity !== undefined)) {
+    const top = values.timeOpacity ?? BASE.timeOpacity;
+    const fade = values.timeFade ?? BASE.timeFade;
+    values.timeRestOpacity = Math.round(top * (1 - fade) * 100) / 100;
+  }
+  delete values.timeFade;
   return values;
 }

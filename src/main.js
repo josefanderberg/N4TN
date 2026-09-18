@@ -40,8 +40,8 @@ const DEFAULTS = {
   timeFollow: true,
   timePos: 0,
   timeOpacity: 0.92,
+  timeRestOpacity: 0.55,
   timeFull: 1,
-  timeFade: 0.4,
   timeCurve: 1,
   xCount: 0,
   xPos: 0.5,
@@ -74,11 +74,7 @@ const DEMO_DURATION = 6;
 function loadParams() {
   try {
     const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
-    const merged = { ...DEFAULTS };
-    for (const key of Object.keys(DEFAULTS)) {
-      if (typeof saved[key] === typeof DEFAULTS[key]) merged[key] = saved[key];
-    }
-    return merged;
+    return { ...DEFAULTS, ...sanitize(saved) };
   } catch {
     return { ...DEFAULTS };
   }
@@ -99,7 +95,12 @@ function saveParams() {
 const params = loadParams();
 
 // Rent utseende i panelen, inget som hör till bilden och sparas därför inte.
-const ui = { sliceTab: 'time', waveTab: 'played' };
+const ui = {
+  sliceTab: 'time',
+  waveTab: 'played',
+  // Djupet över reglagets max öppnar det fria läget direkt.
+  depthExpanded: params.depth > 5,
+};
 
 function loadPresets() {
   try {
@@ -126,6 +127,12 @@ function sanitize(values) {
   if (!values || typeof values !== 'object') return clean;
   for (const key of Object.keys(DEFAULTS)) {
     if (typeof values[key] === typeof DEFAULTS[key]) clean[key] = values[key];
+  }
+  // Sparat från när uttoningen mellan snitten var relativ (timeFade): räkna om
+  // till bottenopaciteten, så gamla förval och koder ser ut som de gjorde.
+  if (typeof values.timeFade === 'number' && clean.timeRestOpacity === undefined) {
+    const top = typeof clean.timeOpacity === 'number' ? clean.timeOpacity : DEFAULTS.timeOpacity;
+    clean.timeRestOpacity = Math.round(top * (1 - values.timeFade) * 100) / 100;
   }
   return clean;
 }
@@ -961,125 +968,198 @@ const sections = [
   {
     title: 'Volym',
     accent: '#7fd4c1',
-    hint: 'Hur många bildrutor lådan byggs av, hur djup den blir och hur kanterna ser ut.',
+    hint: 'Sammanhanget: lådan som klippet byggs in i, och rummet runt den.',
     items: [
-      { type: 'number', key: 'frames', label: 'Bildrutor', min: 2, max: 512, step: 1 },
-      { type: 'number', key: 'size', label: 'Upplösning (px)', min: 32, max: 720, step: 1 },
+      { type: 'number', key: 'frames', label: 'Bildrutor', min: 2, max: 512, step: 1,
+        info: 'Hur många bildrutor ur klippet som staplas i djupled. Fler ger mjukare tidsövergång men tar längre tid att bygga.' },
+      { type: 'number', key: 'size', label: 'Upplösning (px)', min: 32, max: 720, step: 1,
+        info: 'Upplösningen på varje bildruta i lådan. Högre blir skarpare men kostar minne.' },
       { type: 'note', id: 'volume-info', text: '' },
       // Knappen är öppen så fort ett klipp är laddat: ett bygge som blev fel eller
       // avbröts ska gå att göra om utan att först behöva ändra något reglage.
       { type: 'buttons', buttons: [
         { label: 'Bygg om volym', id: 'rebuild-btn', action: () => buildVolume() },
-      ], disabled: () => noVideo() || state.building },
-      { type: 'range', key: 'depth', label: 'Djup (tid)', min: 0.2, max: 50, step: 0.05 },
-      { type: 'checkbox', key: 'flipTime', label: 'Vänd tidsriktning' },
+      ], disabled: () => noVideo() || state.building,
+        info: 'Läser om klippet och packar bildrutorna till lådans 3D-textur med värdena ovan.' },
+      // Djupet är ett reglage upp till 5; den som vill dra ut lådan längre än så
+      // öppnar det fria läget och skriver vad som helst.
+      { type: 'range', key: 'depth', label: 'Djup (tid)', min: 0.2, max: 5, step: 0.05,
+        visible: () => !ui.depthExpanded,
+        info: 'Hur långt lådan dras ut i tidsled. 1 är en kub; högre blir en korridor genom tiden.' },
+      { type: 'number', key: 'depth', label: 'Djup (tid)', min: 0.2, max: 200, step: 0.01,
+        visible: () => ui.depthExpanded,
+        info: 'Fritt djup i tidsled — skriv vad du vill upp till 200.' },
+      { type: 'buttons', buttons: [
+        { label: 'Utöka djupet…', action: () => { ui.depthExpanded = true; panel.refresh(); } },
+      ], visible: () => !ui.depthExpanded },
+      { type: 'buttons', buttons: [
+        { label: 'Tillbaka till reglaget', action: () => {
+          ui.depthExpanded = false;
+          if (params.depth > 5) params.depth = 5;
+          onParamChange('depth');
+        } },
+      ], visible: () => ui.depthExpanded },
+      { type: 'checkbox', key: 'flipTime', label: 'Vänd tidsriktning',
+        info: 'Vänder tiden i lådan, så att klippets slut ligger längst fram.' },
       // Lådans egna kanter och rummet runt den hör ihop med lådan, inte med bilden.
-      { type: 'range', key: 'lines', label: 'Kantlinjer', min: 0, max: 1, step: 0.01 },
-      { type: 'range', key: 'edgeGlow', label: 'Kantglöd', min: 0, max: 2, step: 0.01 },
-      { type: 'color', key: 'background', label: 'Bakgrund' },
+      { type: 'range', key: 'lines', label: 'Kantlinjer', min: 0, max: 1, step: 0.01,
+        info: 'Trådramen runt lådan och konturerna kring ögonblicken.' },
+      { type: 'range', key: 'edgeGlow', label: 'Kantglöd', min: 0, max: 2, step: 0.01,
+        info: 'Ljusskimret längs lådans kanter.' },
+      { type: 'color', key: 'background', label: 'Bakgrund',
+        info: 'Färgen på rummet runt lådan.' },
     ],
   },
   {
     title: 'Utseende',
     accent: '#c4a6ff',
-    hint: 'Hur bildrutorna vägs ihop, och hur lådan lyser.',
+    hint: 'Helheten inne i lådan: hur bildrutorna vägs ihop och lyser.',
     items: [
       { type: 'select', key: 'content', label: 'Innehåll', options: [
         [0, 'Bild'], [1, 'Rörelse'],
-      ] },
+      ], info: 'Bild visar råa bildrutor. Rörelse visar skillnaden mellan bildrutor, så att stillastående faller bort och det som rör sig ritar banor genom lådan.' },
       { type: 'range', key: 'motionGain', label: 'Rörelsekänslighet', min: 1, max: 40, step: 0.5,
-        visible: (p) => p.content === 1 },
+        visible: (p) => p.content === 1,
+        info: 'Hur mycket små rörelser förstärks i rörelseläget.' },
       { type: 'select', key: 'blend', label: 'Blandning', options: [
         [0, 'Genomskinlig'], [1, 'Adderande'], [2, 'Maxljus'],
-      ] },
+      ], info: 'Hur allt längs siktlinjen vägs ihop: som genomskinliga lager, som adderat ljus, eller bara det ljusaste som syns.' },
       { type: 'range', key: 'density', label: 'Densitet', min: 0, max: 10, step: 0.05,
-        visible: (p) => p.blend !== 2 },
-      { type: 'range', key: 'lumWeight', label: 'Ljusa partier tätare', min: 0, max: 1, step: 0.01 },
-      { type: 'tabs',
-        tabs: [['played', 'Bildrutan som spelas'], ['slices', 'Övriga djupsnitt']],
-        get: () => ui.waveTab,
-        set: (value) => { ui.waveTab = value; } },
-      { type: 'range', key: 'wave', label: 'Vågens styrka', min: 0, max: 4, step: 0.01,
-        visible: () => ui.waveTab === 'played' },
-      { type: 'range', key: 'waveWidth', label: 'Vågens längd', min: 0.02, max: 1, step: 0.01,
-        visible: () => ui.waveTab === 'played', disabled: (p) => p.wave <= 0 },
-      { type: 'range', key: 'sliceWave', label: 'Vågens styrka', min: 0, max: 4, step: 0.01,
-        visible: () => ui.waveTab === 'slices' },
-      { type: 'range', key: 'sliceWaveWidth', label: 'Vågens längd', min: 0.02, max: 1, step: 0.01,
-        visible: () => ui.waveTab === 'slices', disabled: (p) => p.sliceWave <= 0 },
-      { type: 'range', key: 'edgeFade', label: 'Tona in och ut vid ändarna', min: 0, max: 0.5, step: 0.005 },
-      { type: 'range', key: 'shellFront', label: 'Yta fram', min: 0, max: 1, step: 0.01 },
-      { type: 'range', key: 'shellBack', label: 'Yta bak', min: 0, max: 1, step: 0.01 },
-      { type: 'range', key: 'brightness', label: 'Ljusstyrka', min: 0.2, max: 3, step: 0.01 },
-      { type: 'range', key: 'saturation', label: 'Mättnad', min: 0, max: 2, step: 0.01 },
-      { type: 'range', key: 'glass', label: 'Glasreflex', min: 0, max: 2, step: 0.01 },
-      { type: 'range', key: 'steps', label: 'Kvalitet (steg)', min: 48, max: 360, step: 1 },
+        visible: (p) => p.blend !== 2,
+        info: 'Hur tät volymen är. Högre gör lådan mer ogenomskinlig.' },
+      { type: 'range', key: 'lumWeight', label: 'Ljusa partier tätare', min: 0, max: 1, step: 0.01,
+        info: 'Låter ljusa partier väga tyngre än mörka, så att de tar över i blandningen.' },
+      { type: 'range', key: 'edgeFade', label: 'Tona in och ut vid ändarna', min: 0, max: 0.5, step: 0.005,
+        info: 'Tonar klippets början och slut mot lådans ändar i stället för att de klipps tvärt.' },
+      { type: 'range', key: 'shellFront', label: 'Yta fram', min: 0, max: 1, step: 0.01,
+        info: 'Hur mycket lådans framsida syns — första bildrutans kanter utsmetade över tid.' },
+      { type: 'range', key: 'shellBack', label: 'Yta bak', min: 0, max: 1, step: 0.01,
+        info: 'Samma som Yta fram, men för lådans baksida.' },
+      { type: 'range', key: 'brightness', label: 'Ljusstyrka', min: 0.2, max: 3, step: 0.01,
+        info: 'Ljusstyrkan på allt innehåll i lådan.' },
+      { type: 'range', key: 'saturation', label: 'Mättnad', min: 0, max: 2, step: 0.01,
+        info: 'Färgmättnaden, från svartvitt till förstärkta färger.' },
+      { type: 'range', key: 'glass', label: 'Glasreflex', min: 0, max: 2, step: 0.01,
+        info: 'Reflexen som får lådans ytor att skifta som glas när kameran rör sig.' },
+      { type: 'range', key: 'steps', label: 'Kvalitet (steg)', min: 48, max: 360, step: 1,
+        info: 'Hur många steg strålarna tar genom lådan. Fler ger jämnare bild men tyngre rendering.' },
     ],
   },
   {
-    title: 'Snitt',
+    // Snitten är ögonblicken: bildrutorna som skarpa plan, flera tider samtidigt.
+    title: 'Ögonblick',
     accent: '#ffc978',
-    hint: 'Skarpa plan genom lådan — en flik per riktning.',
+    hint: 'Bildrutor som skarpa plan i lådan — flera tider samtidigt. En flik per riktning.',
     items: [
       { type: 'tabs',
         tabs: [['time', 'Djupled'], ['x', 'Sidled'], ['y', 'Höjdled']],
         get: () => ui.sliceTab,
         set: (value) => { ui.sliceTab = value; } },
 
-      { type: 'checkbox', key: 'timeOn', label: 'Visa tidssnitt',
-        visible: () => ui.sliceTab === 'time' },
+      { type: 'checkbox', key: 'timeOn', label: 'Visa ögonblicken',
+        visible: () => ui.sliceTab === 'time',
+        info: 'Visar ögonblicken: skarpa bildrutor som plan tvärs genom lådan.' },
       { type: 'range', key: 'timeCount', label: 'Antal', min: 1, max: 256, step: 1,
-        visible: () => ui.sliceTab === 'time', disabled: (p) => !p.timeOn },
+        visible: () => ui.sliceTab === 'time', disabled: (p) => !p.timeOn,
+        info: 'Hur många ögonblick som visas samtidigt, jämnt fördelade genom klippet.' },
       { type: 'checkbox', key: 'timeFollow', label: 'Följ uppspelningen',
-        visible: () => ui.sliceTab === 'time', disabled: (p) => !p.timeOn },
+        visible: () => ui.sliceTab === 'time', disabled: (p) => !p.timeOn,
+        info: 'Låter ögonblicken glida genom lådan i takt med att klippet spelas.' },
       { type: 'range', key: 'timePos', label: 'Position', min: 0, max: 1, step: 0.001,
-        visible: () => ui.sliceTab === 'time', disabled: (p) => !p.timeOn || p.timeFollow },
+        visible: () => ui.sliceTab === 'time', disabled: (p) => !p.timeOn || p.timeFollow,
+        info: 'Var i klippet ögonblicket ligger, när det inte följer uppspelningen.' },
       { type: 'range', key: 'timeOpacity', label: 'Opacitet', min: 0, max: 1, step: 0.01,
-        visible: () => ui.sliceTab === 'time', disabled: (p) => !p.timeOn },
-      { type: 'note', text: 'Höj Antal över 1 för att kunna fördela fulla snitt genom lådan.',
+        visible: () => ui.sliceTab === 'time', disabled: (p) => !p.timeOn,
+        info: 'Styrkan på ögonblicken med full styrka. Hur de tonar av mellan varandra ställs under Tidsaura.' },
+      { type: 'note', text: 'Höj Antal över 1 för fler ögonblick genom lådan — då vaknar tidsauran mellan dem.',
         visible: (p) => ui.sliceTab === 'time' && p.timeOn && p.timeCount < 2 },
-      { type: 'note', text: 'Hög opacitet gör att det främsta snittet skymmer de bakom — sänk den för att se flera.',
+      { type: 'note', text: 'Hög opacitet gör att det främsta ögonblicket skymmer de bakom — sänk den för att se flera.',
         visible: (p) => ui.sliceTab === 'time' && p.timeOn && p.timeCount >= 2 && p.timeOpacity > 0.5 },
-      { type: 'range', key: 'timeFade', label: 'Uttoning mellan dem', min: 0, max: 1, step: 0.01,
-        visible: () => ui.sliceTab === 'time', disabled: (p) => !p.timeOn || p.timeCount < 2 },
-      { type: 'note', text: 'Med uttoning 0 är alla snitt lika starka, så antalet fulla spelar ingen roll.',
-        visible: (p) => ui.sliceTab === 'time' && p.timeOn && p.timeCount >= 2 && p.timeFade <= 0 },
-      { type: 'range', key: 'timeFull', label: 'Snitt med full styrka', min: 1, max: 32, step: 1,
-        visible: () => ui.sliceTab === 'time',
-        disabled: (p) => !p.timeOn || p.timeCount < 2 || p.timeFade <= 0 },
-      { type: 'range', key: 'timeCurve', label: 'Bågens form', min: 0.2, max: 5, step: 0.05,
-        visible: () => ui.sliceTab === 'time',
-        disabled: (p) => !p.timeOn || p.timeCount < 2 || p.timeFade <= 0 },
 
       { type: 'range', key: 'xCount', label: 'Antal', min: 0, max: 256, step: 1,
-        visible: () => ui.sliceTab === 'x' },
+        visible: () => ui.sliceTab === 'x',
+        info: 'Antal snitt i sidled — stående skivor där höjden är rum och djupet är tid.' },
       { type: 'checkbox', key: 'xSweep', label: 'Svep automatiskt',
-        visible: () => ui.sliceTab === 'x', disabled: (p) => p.xCount < 1 },
+        visible: () => ui.sliceTab === 'x', disabled: (p) => p.xCount < 1,
+        info: 'Låter sidledssnitten vandra fram och tillbaka av sig själva.' },
       { type: 'range', key: 'xPos', label: 'Position', min: 0, max: 1, step: 0.001,
-        visible: () => ui.sliceTab === 'x', disabled: (p) => p.xCount < 1 || p.xSweep },
+        visible: () => ui.sliceTab === 'x', disabled: (p) => p.xCount < 1 || p.xSweep,
+        info: 'Var i sidled snittet ligger.' },
       { type: 'range', key: 'xOpacity', label: 'Opacitet', min: 0, max: 1, step: 0.01,
-        visible: () => ui.sliceTab === 'x', disabled: (p) => p.xCount < 1 },
+        visible: () => ui.sliceTab === 'x', disabled: (p) => p.xCount < 1,
+        info: 'Hur starkt sidledssnitten syns.' },
 
       { type: 'range', key: 'yCount', label: 'Antal', min: 0, max: 256, step: 1,
-        visible: () => ui.sliceTab === 'y' },
+        visible: () => ui.sliceTab === 'y',
+        info: 'Antal snitt i höjdled — liggande skivor där bredden är rum och djupet är tid.' },
       { type: 'checkbox', key: 'ySweep', label: 'Svep automatiskt',
-        visible: () => ui.sliceTab === 'y', disabled: (p) => p.yCount < 1 },
+        visible: () => ui.sliceTab === 'y', disabled: (p) => p.yCount < 1,
+        info: 'Låter höjdledssnitten vandra upp och ner av sig själva.' },
       { type: 'range', key: 'yPos', label: 'Position', min: 0, max: 1, step: 0.001,
-        visible: () => ui.sliceTab === 'y', disabled: (p) => p.yCount < 1 || p.ySweep },
+        visible: () => ui.sliceTab === 'y', disabled: (p) => p.yCount < 1 || p.ySweep,
+        info: 'Var i höjdled snittet ligger.' },
       { type: 'range', key: 'yOpacity', label: 'Opacitet', min: 0, max: 1, step: 0.01,
-        visible: () => ui.sliceTab === 'y', disabled: (p) => p.yCount < 1 },
+        visible: () => ui.sliceTab === 'y', disabled: (p) => p.yCount < 1,
+        info: 'Hur starkt höjdledssnitten syns.' },
+    ],
+  },
+  {
+    // Auran är mönstret mellan ögonblicken: hur de tonar i och ur varandra.
+    title: 'Tidsaura',
+    accent: '#ffe08a',
+    hint: 'Mönstret mellan ögonblicken: vad som lyser kring uppspelningen och hur det tonar av.',
+    items: [
+      { type: 'tabs',
+        tabs: [
+          ['played', 'Bildrutan som spelas'],
+          // Auran mellan ögonblicken finns först när det finns fler än ett.
+          ['slices', 'Övriga ögonblick', (p) => p.timeCount >= 2],
+        ],
+        get: () => ui.waveTab,
+        set: (value) => { ui.waveTab = value; } },
+      { type: 'range', key: 'wave', label: 'Vågens styrka', min: 0, max: 4, step: 0.01, pane: true,
+        visible: () => ui.waveTab === 'played',
+        info: 'Hur mycket starkare allt nära den spelade bildrutan lyser än resten av klippet. 0 visar allt lika mycket; över 1 skärs det bortanför vågen bort.' },
+      { type: 'range', key: 'waveWidth', label: 'Vågens längd', min: 0.02, max: 1, step: 0.01, pane: true,
+        visible: () => ui.waveTab === 'played', disabled: (p) => p.wave <= 0,
+        info: 'Hur stor del av klippet kring den spelade bildrutan som syns tydligt.' },
+      { type: 'range', key: 'sliceWave', label: 'Vågens styrka', min: 0, max: 4, step: 0.01, pane: true,
+        visible: () => ui.waveTab === 'slices', disabled: (p) => !p.timeOn,
+        info: 'Samma våg, men för de övriga ögonblicken: de nära uppspelningen lyser starkast.' },
+      { type: 'range', key: 'sliceWaveWidth', label: 'Vågens längd', min: 0.02, max: 1, step: 0.01, pane: true,
+        visible: () => ui.waveTab === 'slices', disabled: (p) => !p.timeOn || p.sliceWave <= 0,
+        info: 'Hur brett fönstret kring uppspelningen är för de övriga ögonblicken.' },
+
+      // Styrkerampen: fulla ögonblick på en nivå, de emellan på en annan,
+      // och bågen går mellan de två.
+      { type: 'range', key: 'timeRestOpacity', label: 'Opacitet mellan ögonblicken', min: 0, max: 1, step: 0.01,
+        disabled: (p) => !p.timeOn || p.timeCount < 2,
+        info: 'Var auran bottnar mellan de fulla ögonblicken. Ögonblickens egen opacitet ställs under Ögonblick.' },
+      { type: 'note', text: 'Ligger opaciteten emellan i nivå med ögonblicken blir rampen platt — sänk den för att få tillbaka bågen.',
+        visible: (p) => p.timeOn && p.timeCount >= 2 && p.timeRestOpacity >= p.timeOpacity },
+      { type: 'range', key: 'timeFull', label: 'Ögonblick med full styrka', min: 1, max: 32, step: 1,
+        disabled: (p) => !p.timeOn || p.timeCount < 2,
+        info: 'Hur många ögonblick som lyser för fullt samtidigt, jämnt fördelade över klippet. Auran sjunker mellan dem.' },
+      { type: 'range', key: 'timeCurve', label: 'Bågens form', min: 0.2, max: 5, step: 0.05,
+        disabled: (p) => !p.timeOn || p.timeCount < 2,
+        info: 'Kurvan mellan full styrka och botten: låga värden ger breda toppar som nästan möts, höga ger spetsiga toppar.' },
+      { type: 'note', text: 'Auran gäller ögonblicken i djupled. Höj Antal under Ögonblick för att den ska ha något att tona mellan.',
+        visible: (p) => p.timeCount < 2 },
     ],
   },
   {
     title: 'Special',
     accent: '#ff7ad9',
-    hint: 'Vrider djupsnitten mot kameravinkeln, så att de står på diagonalen.',
+    hint: 'Vrider ögonblicken mot kameravinkeln, så att de står på diagonalen.',
     items: [
-      { type: 'checkbox', key: 'special', label: 'Vrid snitten efter kameran' },
+      { type: 'checkbox', key: 'special', label: 'Vrid ögonblicken efter kameran',
+        info: 'Ögonblicken vrider sig mot kameran när den åker runt lådan, i stället för att stå rakt.' },
       { type: 'checkbox', key: 'specialReverse', label: 'Motsatt håll',
-        disabled: (p) => !p.special },
+        disabled: (p) => !p.special,
+        info: 'Vrider åt andra hållet i förhållande till kameran.' },
       { type: 'range', key: 'specialAmount', label: 'Hur mycket', min: 0, max: 1.5, step: 0.01,
-        disabled: (p) => !p.special },
+        disabled: (p) => !p.special,
+        info: 'Hur långt mot kameravinkeln ögonblicken vrids.' },
     ],
   },
   {
@@ -1087,16 +1167,19 @@ const sections = [
     accent: '#9ede8a',
     hint: 'Var kameran står och hur den rör sig.',
     items: [
-      { type: 'checkbox', key: 'followSlice', label: 'Följ tidssnittet' },
+      { type: 'checkbox', key: 'followSlice', label: 'Följ ögonblicket',
+        info: 'Kameran åker med ögonblicket genom lådan på konstant avstånd.' },
       { type: 'select', key: 'motion', label: 'Rörelse', options: [
         ['free', 'Fri (mus)'], ['pendulum', 'Pendel'], ['rotate', 'Rotation'],
-      ] },
+      ], info: 'Fri styr du själv med mus eller finger; pendel vaggar kameran, rotation åker runt lådan.' },
       { type: 'range', key: 'motionSpeed', label: 'Hastighet', min: 0.05, max: 2, step: 0.01,
-        visible: (p) => p.motion !== 'free' },
-      { type: 'range', key: 'fov', label: 'Brännvidd (FOV)', min: 12, max: 75, step: 1 },
+        visible: (p) => p.motion !== 'free',
+        info: 'Hur fort pendeln eller rotationen går.' },
+      { type: 'range', key: 'fov', label: 'Brännvidd (FOV)', min: 12, max: 75, step: 1,
+        info: 'Lågt värde ger tele och plattare perspektiv, högt ger vidvinkel och mer djupkänsla.' },
       { type: 'buttons', buttons: [
         { label: 'Återställ vy', action: () => fitCamera() },
-      ] },
+      ], info: 'Ställer kameran så att hela lådan precis får plats i bilden.' },
     ],
   },
   {
@@ -1109,24 +1192,28 @@ const sections = [
         ['1080x1350', '4:5 · 1080×1350'],
         ['1080x1920', '9:16 · 1080×1920'],
         ['1920x1080', '16:9 · 1920×1080'],
-      ] },
-      { type: 'select', key: 'fps', label: 'Bilder/s', options: [[30, '30'], [60, '60']] },
+      ], info: 'Bildförhållandet på filen som exporteras — samma som förhandsvisningen.' },
+      { type: 'select', key: 'fps', label: 'Bilder/s', options: [[30, '30'], [60, '60']],
+        info: 'Bildfrekvensen i den exporterade filen.' },
       { type: 'select', key: 'bitrate', label: 'Kvalitet', options: [
         [8, '8 Mbit/s'], [16, '16 Mbit/s'], [24, '24 Mbit/s'], [40, '40 Mbit/s'],
-      ] },
+      ], info: 'Bithastigheten: högre ger skarpare video men större fil.' },
       { type: 'select', key: 'loops', label: 'Längd', options: [
         [1, '1 varv'], [2, '2 varv'], [3, '3 varv'],
-      ] },
-      { type: 'checkbox', key: 'audio', label: 'Ta med ljud' },
+      ], info: 'Hur många varv av klippet som spelas in.' },
+      { type: 'checkbox', key: 'audio', label: 'Ta med ljud',
+        info: 'Tar med klippets originalljud i den exporterade filen.' },
       { type: 'buttons', buttons: [
         { label: 'Exportera video', id: 'export-btn', primary: true, action: exportVideo },
         { label: 'Spara bild', action: saveSnapshot },
-      ], disabled: () => noVideo() || state.building },
+      ], disabled: () => noVideo() || state.building,
+        info: 'Exportera video spelar in i realtid och laddar ner som fil; Spara bild tar en stillbild av vyn.' },
       { type: 'note', id: 'export-status',
         text: 'Exporten spelar in i realtid i den hastighet du valt under videon. Håll fliken synlig under tiden.' },
     ],
   },
 ];
+
 
 // Visar vad de valda inställningarna kostar innan man bygger om.
 function volumeEstimate() {
@@ -1163,6 +1250,8 @@ function applyValues(values) {
 
 function onParamChange(key) {
   if (key === 'frames' || key === 'size' || key === '*') updateVolumeInfo();
+  // Ett stort djup från en kod eller ett förval öppnar det fria läget av sig självt.
+  if ((key === 'depth' || key === '*') && params.depth > 5) ui.depthExpanded = true;
   if (key === 'depth' || key === '*') volume.setDepth(params.depth);
   if (key === 'format' || key === '*') layout();
   if (key === 'motion' || key === '*') anchorMotion();

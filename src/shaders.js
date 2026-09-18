@@ -49,7 +49,7 @@ uniform float uEdgeGlow;
 uniform float uTimeCount;
 uniform float uTimePos;
 uniform float uTimeOpacity;
-uniform float uTimeFade;
+uniform float uTimeRestOpacity;
 uniform float uTimeFull;
 uniform float uTimeCurve;
 uniform float uSharpTol;
@@ -158,20 +158,17 @@ void over(inout vec3 col, inout float acc, vec3 c, float a) {
 // Ytorna syns starkt i sned vinkel och nästan inte alls rakt framifrån, som glas.
 float grazing(float fres) { return 0.12 + 0.88 * pow(fres, 1.5); }
 
-// Tidssnitten ligger på uTimePos + k / uTimeCount. Snittet som spelas är k = 0 och
-// har full styrka; varje steg därifrån dämpas med samma faktor.
-// Snitten med full styrka ligger utspridda över hela stacken: ett vid
-// uppspelningen och sedan var n:te snitt åt båda håll. Mellan dem sjunker en båge
-// ner till uTimeFade och stiger upp igen mot nästa topp.
-// uTimeFull toppar jämnt fördelade över stacken, alla lika starka, var och en
-// med en båge före och efter sig. Räknas på snittets nummer, så att den håller
-// även när snitten är vridna och en punkt inte längre har en enda tid.
-float sliceFade(float sliceIndex) {
-  if (uTimeFade <= 0.001) return 1.0;
+// Tidssnitten ligger på uTimePos + k / uTimeCount. uTimeFull toppar med full
+// styrka ligger jämnt fördelade över stacken: en vid uppspelningen (k = 0) och
+// sedan var n:te snitt åt båda håll. Topparna har uTimeOpacity, dalarna
+// däremellan bottnar på uTimeRestOpacity, och bågen mellan de två nivåerna
+// formas av uTimeCurve. Räknas på snittets nummer, så att den håller även när
+// snitten är vridna och en punkt inte längre har en enda tid.
+float sliceAlpha(float sliceIndex) {
   float phase = sliceIndex * uTimeFull / max(uTimeCount, 1.0);
   float toNearest = abs(phase - floor(phase + 0.5));
   float arc = pow(0.5 + 0.5 * cos(6.2831853 * toNearest), uTimeCurve);
-  return 1.0 - uTimeFade * (1.0 - arc);
+  return mix(uTimeRestOpacity, uTimeOpacity, arc);
 }
 
 // Första snittplanet som strålen korsar i [tA, tB), annars -1.
@@ -258,7 +255,7 @@ void main() {
         vec3 c = (uHasVideo > 0.5 && abs(sliceIndex) < 0.5)
           ? texture(uVideo, uv).rgb
           : texture(uVolume, vec3(uv.x, 1.0 - uv.y, sliceTime)).rgb;
-        over(col, acc, grade(c), uTimeOpacity * sliceFade(sliceIndex)
+        over(col, acc, grade(c), sliceAlpha(sliceIndex)
           * sliceWaveAt(sliceTime) * step(sliceTime, uFilled) * edgeAtTime(sliceTime));
       }
       ts += 1e-6;
