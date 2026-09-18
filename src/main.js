@@ -43,6 +43,8 @@ const DEFAULTS = {
   steps: 200,
 
   timeOn: true,
+  timeLoop: false,
+  timeAnchor: 0,
   timeCount: 1,
   timeFollow: true,
   timePos: 0,
@@ -56,6 +58,7 @@ const DEFAULTS = {
   xPos: 0.5,
   xSweep: false,
   xFan: false,
+  xFanCenter: 0.5,
   xSpinSpeed: 0.35,
   xOpacity: 0.3,
   yCount: 0,
@@ -375,7 +378,7 @@ function tick(timestamp) {
 
   Object.assign(frameParams, params);
   frameParams.timePosEffective = params.timeFollow ? currentTimeFraction() : params.timePos;
-  followSlice(frameParams.timePosEffective);
+  followSlice(params.timeLoop ? params.timeAnchor : frameParams.timePosEffective);
   updateCamera(dt);
   const tilt = tiltFromCamera();
   frameParams.tilt = tilt.h;
@@ -1122,6 +1125,12 @@ const sections = [
       { type: 'range', key: 'timePos', label: 'Position', min: 0, max: 1, step: 0.001,
         visible: () => ui.sliceTab === 'time', disabled: (p) => !p.timeOn || p.timeFollow,
         info: 'Var i klippet ögonblicket ligger, när det inte följer uppspelningen.' },
+      { type: 'checkbox', key: 'timeLoop', label: 'Loopa genom lådan',
+        visible: () => ui.sliceTab === 'time',
+        info: 'Klippet rullar cykliskt genom lådan medan snitten står still: bildrutan som spelats förbi kommer in längst bak igen, och kameran behöver aldrig flytta sig.' },
+      { type: 'range', key: 'timeAnchor', label: 'Följda bildrutans läge', min: 0, max: 1, step: 0.001,
+        visible: () => ui.sliceTab === 'time', disabled: (p) => !p.timeOn || !p.timeLoop,
+        info: 'Var i lådan den spelade bildrutan står i loopläget: 0 längst fram, 0,5 i mitten, 1 längst bak.' },
       { type: 'range', key: 'timeOpacity', label: 'Opacitet (bildrutan som spelas)', min: 0, max: 1, step: 0.01,
         visible: () => ui.sliceTab === 'time', disabled: (p) => !p.timeOn,
         info: 'Styrkan på just den bildruta som spelas — ögonblicket kameran följer.' },
@@ -1188,6 +1197,9 @@ const sections = [
       { type: 'range', key: 'xPos', label: 'Position', min: 0, max: 1, step: 0.001,
         visible: () => ui.sliceTab === 'x', disabled: (p) => p.xCount < 1 || p.xSweep,
         info: 'Var i sidled snittet ligger.' },
+      { type: 'range', key: 'xFanCenter', label: 'Centrum (fram–bak)', min: 0, max: 1, step: 0.01,
+        visible: () => ui.sliceTab === 'x', disabled: (p) => p.xCount < 1 || !p.xFan,
+        info: 'Var i djupled solfjäderns axel står: 0 längst fram, 0,5 i mitten, 1 längst bak.' },
       { type: 'range', key: 'xOpacity', label: 'Opacitet', min: 0, max: 1, step: 0.01,
         visible: () => ui.sliceTab === 'x', disabled: (p) => p.xCount < 1,
         info: 'Hur starkt sidledssnitten syns.' },

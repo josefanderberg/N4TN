@@ -44,16 +44,22 @@ class SliceOutlines {
   cornersFor(coord, tilt, taper, fan) {
     const w = (z) => (taper ? taper.back + (z + 0.5) * (taper.front - taper.back) : 1);
     if (this.axis === 0 && fan) {
-      // Bladet är ett plan genom mittaxeln vid vinkeln coord, klippt mot
-      // väggarna och fram-/baksidan.
+      // Bladet är ett plan genom solfjäderns axel (x = 0, z = fan.z0) vid
+      // vinkeln coord, klippt mot väggarna och fram-/baksidan.
       const sphi = Math.sin(coord);
       const cphi = Math.cos(coord);
-      const U = Math.min(
-        (0.5 * fan.sx) / Math.max(Math.abs(sphi), 1e-4),
-        (0.5 * fan.sz) / Math.max(Math.abs(cphi), 1e-4),
-      );
-      const at = (u, y) => [(u * sphi) / fan.sx, y, (u * cphi) / fan.sz];
-      return [at(-U, -0.5), at(U, -0.5), at(U, 0.5), at(-U, 0.5)];
+      const uMaxX = (0.5 * fan.sx) / Math.max(Math.abs(sphi), 1e-4);
+      let uLo = -uMaxX;
+      let uHi = uMaxX;
+      if (Math.abs(cphi) > 1e-4) {
+        const a = ((-0.5 - fan.z0) * fan.sz) / cphi;
+        const b = ((0.5 - fan.z0) * fan.sz) / cphi;
+        uLo = Math.max(uLo, Math.min(a, b));
+        uHi = Math.min(uHi, Math.max(a, b));
+      }
+      if (uLo >= uHi) return RECT.map(() => [0, 0, fan.z0]);
+      const at = (u, y) => [(u * sphi) / fan.sx, y, fan.z0 + (u * cphi) / fan.sz];
+      return [at(uLo, -0.5), at(uHi, -0.5), at(uHi, 0.5), at(uLo, 0.5)];
     }
     if (this.axis === 0) return RECT.map((c) => [coord * w(c[0]), c[1] * w(c[0]), c[0]]);
     if (this.axis === 1) return RECT.map((c) => [c[0] * w(c[1]), coord * w(c[1]), c[1]]);
@@ -175,6 +181,8 @@ export class VolumeBox {
       uGlass: { value: 1 },
       uEdgeGlow: { value: 0.6 },
       uTimeCount: { value: 1 },
+      uTimeLoop: { value: 0 },
+      uTimeAnchor: { value: 0 },
       uTimePos: { value: 0 },
       uTimeOpacity: { value: 0.92 },
       uTimeRestOpacity: { value: 0.55 },
@@ -194,6 +202,7 @@ export class VolumeBox {
       uSliceH: { value: 1 },
       uXCount: { value: 1 },
       uXFan: { value: 0 },
+      uXFanCenter: { value: 0.5 },
       uXPos: { value: 0.5 },
       uXOpacity: { value: 0.3 },
       uYCount: { value: 0 },
@@ -323,6 +332,8 @@ export class VolumeBox {
     u.uGlass.value = p.glass;
     u.uEdgeGlow.value = p.edgeGlow;
     u.uTimeCount.value = p.timeOn ? p.timeCount : 0;
+    u.uTimeLoop.value = p.timeLoop ? 1 : 0;
+    u.uTimeAnchor.value = p.timeAnchor;
     u.uTimePos.value = p.timePosEffective;
     u.uTimeOpacity.value = p.timeOpacity;
     u.uTimeRestOpacity.value = p.timeRestOpacity;
@@ -339,6 +350,7 @@ export class VolumeBox {
     u.uTiltV.value = p.tiltV;
     u.uXCount.value = p.xCount;
     u.uXFan.value = p.xFan ? 1 : 0;
+    u.uXFanCenter.value = p.xFanCenter;
     u.uXPos.value = p.xPosEffective;
     u.uYCount.value = p.yCount;
     u.uXOpacity.value = p.xOpacity;
@@ -361,7 +373,11 @@ export class VolumeBox {
       for (let k = 0; k < Math.min(p.xCount, 16); k++) {
         angles.push(p.xPosEffective * Math.PI + (k * Math.PI) / p.xCount);
       }
-      this.slices[0].update(angles, null, null, { sx: s.x, sz: s.z });
+      this.slices[0].update(angles, null, null, {
+        sx: s.x,
+        sz: s.z,
+        z0: 0.5 - p.xFanCenter,
+      });
     } else {
       this.slices[0].update(planeCoords(p.xPosEffective - 0.5, p.xCount), null, taper);
     }
@@ -379,7 +395,8 @@ export class VolumeBox {
       sz: s.z,
     } : null;
     this.slices[2].update(
-      planeCoords((0.5 - p.timePosEffective) * dir, p.timeOn ? p.timeCount : 0),
+      planeCoords((0.5 - (p.timeLoop ? p.timeAnchor : p.timePosEffective)) * dir,
+        p.timeOn ? p.timeCount : 0),
       tiltInfo,
       taper,
     );
