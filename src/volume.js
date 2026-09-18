@@ -116,6 +116,7 @@ export class VolumeBox {
       uLumWeight: { value: 0.35 },
       uShellFront: { value: 0.75 },
       uShellBack: { value: 0.6 },
+      uShellSide: { value: 0.7 },
       uBrightness: { value: 1.1 },
       uSaturation: { value: 0.9 },
       uGlass: { value: 1 },
@@ -237,6 +238,7 @@ export class VolumeBox {
     u.uLumWeight.value = p.lumWeight;
     u.uShellFront.value = p.shellFront;
     u.uShellBack.value = p.shellBack;
+    u.uShellSide.value = p.shellSide;
     u.uBrightness.value = p.brightness;
     u.uSaturation.value = p.saturation;
     u.uGlass.value = p.glass;

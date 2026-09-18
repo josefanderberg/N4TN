@@ -551,6 +551,62 @@ select {
   border-left: 2px solid color-mix(in srgb, var(--sec-accent) 45%, transparent);
 }
 
+/* Undergruppen: en liten sektion inne i sektionen, hopfälld tills den behövs. */
+.row-group {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.row-group summary {
+  list-style: none;
+  cursor: pointer;
+  user-select: none;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 9px 10px;
+}
+
+.row-group summary::-webkit-details-marker {
+  display: none;
+}
+
+.row-group .group-title {
+  flex: 1;
+  font-weight: 600;
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+
+.row-group summary::after {
+  content: '';
+  flex: none;
+  width: 6px;
+  height: 6px;
+  border-right: 1.5px solid var(--text-faint);
+  border-bottom: 1.5px solid var(--text-faint);
+  transform: rotate(-45deg);
+  transition: transform 0.15s;
+}
+
+.row-group[open] summary::after {
+  transform: rotate(45deg);
+}
+
+.row-group summary:hover .group-title,
+.row-group[open] .group-title {
+  color: var(--text);
+}
+
+.row-group .group-body {
+  padding: 10px 10px 12px;
+  display: grid;
+  gap: 12px;
+  border-top: 1px solid var(--border);
+}
+
 .presets {
   gap: 8px;
 }

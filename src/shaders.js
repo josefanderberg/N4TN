@@ -40,6 +40,7 @@ uniform float uAutoGain;
 uniform float uLumWeight;
 uniform float uShellFront;
 uniform float uShellBack;
+uniform float uShellSide;
 uniform float uBrightness;
 uniform float uSaturation;
 uniform float uGlass;
@@ -209,8 +210,10 @@ void main() {
     vec3 tint = vec3(0.78, 0.9, 1.0) * 0.35 + spectrum(fresIn * 1.3 + dot(pIn, vec3(0.6, 0.9, 0.4))) * 0.12;
     glass += tint * f * uGlass;
     glass += vec3(0.85, 0.95, 1.0) * exp(-edgeDist(pIn, nIn) * 28.0) * uEdgeGlow * 0.5;
+    // De fyra sidoväggarna har ett eget reglage; fram och bak behåller sina.
+    float shellIn = abs(nIn.z) > 0.5 ? uShellFront : uShellSide;
     over(col, acc, grade(sampleVol(pIn)),
-      uShellFront * grazing(fresIn) * filledAt(pIn) * waveAt(pIn) * edgeAt(pIn));
+      shellIn * grazing(fresIn) * filledAt(pIn) * waveAt(pIn) * edgeAt(pIn));
   }
 
   // Djupsnitten kan vara vridna kring höjdaxeln. Planen definieras av sin
@@ -307,8 +310,9 @@ void main() {
   // Baksidan av lådan.
   if (acc < 0.985) {
     float fresOut = 1.0 - abs(dot(nOut, rdW));
+    float shellOut = abs(nOut.z) > 0.5 ? uShellBack : uShellSide;
     over(col, acc, grade(sampleVol(pOut)),
-      uShellBack * grazing(fresOut) * filledAt(pOut) * waveAt(pOut) * edgeAt(pOut));
+      shellOut * grazing(fresOut) * filledAt(pOut) * waveAt(pOut) * edgeAt(pOut));
     glass += vec3(0.85, 0.95, 1.0) * exp(-edgeDist(pOut, nOut) * 28.0) * uEdgeGlow * 0.25 * (1.0 - acc);
   }
 

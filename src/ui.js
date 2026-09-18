@@ -156,6 +156,24 @@ export function buildPanel(root, sections, params, defaults, onChange) {
     return row;
   }
 
+  // En hopfällbar undergrupp: rader som hör ihop samlas bakom en egen rubrik,
+  // hopfälld från start så att panelen förblir kort på små skärmar.
+  // Gruppens binding läggs först, så att radernas egna disabled-villkor vinner.
+  function groupRow(item) {
+    const details = el('details', { class: 'row row-group' },
+      el('summary', {}, el('span', { class: 'group-title' }, item.label)));
+    bindings.push({ item, row: details, sync: () => {} });
+    const body = el('div', { class: 'group-body' });
+    for (const child of item.items) {
+      const row = builders[child.type](child);
+      if (child.pane) row.classList.add('row-pane');
+      attachInfo(row, child);
+      body.append(row);
+    }
+    details.append(body);
+    return details;
+  }
+
   function noteRow(item) {
     const row = el('p', { class: 'row row-note', id: item.id });
     row.textContent = item.text ?? '';
@@ -173,6 +191,7 @@ export function buildPanel(root, sections, params, defaults, onChange) {
     note: noteRow,
     custom: customRow,
     tabs: tabsRow,
+    group: groupRow,
   };
 
   // Ett litet i intill etiketten fäller ut en förklaring under raden.
