@@ -2,10 +2,13 @@
 // och inte har någon server som kan lagra dem. Bara värden som skiljer sig från
 // referensen nedan skrivs med, vilket håller koden kort.
 
-export const CODE_VERSION = 5;
+export const CODE_VERSION = 6;
 
 // Fält som betydde något annat i en äldre kodversion. Nyckeln är versionen,
 // värdet är fältets dåvarande beskrivning.
+// Vågen låg i en byte, vilket inte räckte för hundradelar i intervallet 0-4.
+const GROV_VAG = { wave: ['wave', 'f1', 0, 4, 0.01] };
+
 const SMA_ANTAL = {
   timeCount: ['timeCount', 'i1'],
   xCount: ['xCount', 'i1'],
@@ -18,16 +21,18 @@ const LEGACY = {
     depth: ['depth', 'f1', 0.2, 4, 0.05],
     ...SMA_ANTAL,
   },
-  2: { depth: ['depth', 'f1', 0.2, 4, 0.05], ...SMA_ANTAL },
-  3: { depth: ['depth', 'f1', 0.2, 10, 0.05], ...SMA_ANTAL },
-  4: { depth: ['depth', 'f1', 0.2, 10, 0.05] },
+  2: { depth: ['depth', 'f1', 0.2, 4, 0.05], ...SMA_ANTAL, ...GROV_VAG },
+  3: { depth: ['depth', 'f1', 0.2, 10, 0.05], ...SMA_ANTAL, ...GROV_VAG },
+  4: { depth: ['depth', 'f1', 0.2, 10, 0.05], ...GROV_VAG },
+  5: { ...GROV_VAG },
 };
 
 // Referensvärden som koden räknar skillnad mot. De är FRYSTA: ändras appens
 // standardvärden får de inte ändras här, annars skulle gamla koder tolkas fel.
 const BASE = {
   frames: 144, size: 320, content: 1, motionGain: 8, blend: 1, density: 2.6,
-  lumWeight: 0.4, wave: 0.7, waveWidth: 0.3, edgeFade: 0, shellFront: 0.75, shellBack: 0.6, brightness: 1.1, saturation: 0.9,
+  lumWeight: 0.4, wave: 0.7, waveWidth: 0.3, edgeFade: 0, sliceWave: 0, sliceWaveWidth: 0.3,
+  special: false, specialReverse: false, specialAmount: 1, shellFront: 0.75, shellBack: 0.6, brightness: 1.1, saturation: 0.9,
   glass: 1, edgeGlow: 0.6, lines: 0.3, steps: 200, depth: 1.3, flipTime: false,
   timeOn: true, timeCount: 1, timeFollow: true, timePos: 0, timeOpacity: 0.92, timeFull: 1, timeFade: 0.4, timeCurve: 1,
   xCount: 0, xPos: 0.5, xSweep: false, xOpacity: 0.3,
@@ -78,7 +83,7 @@ const FIELDS = [
   ['bitrate', 'i1'],
   ['audio', 'b'],
   ['loops', 'i1'],
-  ['wave', 'f1', 0, 4, 0.01],
+  ['wave', 'f2', 0, 4, 0.01],
   ['waveWidth', 'f1', 0.02, 1, 0.01],
   ['xOpacity', 'f1', 0, 1, 0.01],
   ['ySweep', 'b'],
@@ -89,6 +94,11 @@ const FIELDS = [
   ['followSlice', 'b'],
   ['edgeFade', 'f1', 0, 0.5, 0.005],
   ['speed', 'f1', 0.1, 4, 0.05],
+  ['sliceWave', 'f2', 0, 4, 0.01],
+  ['sliceWaveWidth', 'f1', 0.02, 1, 0.01],
+  ['special', 'b'],
+  ['specialReverse', 'b'],
+  ['specialAmount', 'f1', 0, 1.5, 0.01],
 ];
 
 // Crockford base32: inga tecken som går att blanda ihop (I, L, O, U saknas),

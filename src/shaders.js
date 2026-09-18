@@ -56,6 +56,9 @@ uniform float uSharpTol;
 uniform float uWave;
 uniform float uWaveWidth;
 uniform float uEdgeFade;
+uniform float uSliceWave;
+uniform float uSliceWaveWidth;
+uniform float uTilt;
 uniform float uXCount;
 uniform float uXPos;
 uniform float uYCount;
@@ -86,10 +89,18 @@ vec3 sampleVol(vec3 p) {
 float filledAt(vec3 p) { return step(timeAt(p), uFilled); }
 
 // Klippets början och slut kan tonas in och ut mot lådans fram- och bakkant.
-float edgeAt(vec3 p) {
+float edgeAtTime(float t) {
   if (uEdgeFade <= 0.001) return 1.0;
-  float t = timeAt(p);
   return smoothstep(0.0, uEdgeFade, t) * smoothstep(0.0, uEdgeFade, 1.0 - t);
+}
+
+float edgeAt(vec3 p) { return edgeAtTime(timeAt(p)); }
+
+// Egen våg för djupsnitten, skild från vågen som gäller volymen och ytorna.
+float sliceWaveAt(float sliceTime) {
+  if (uSliceWave <= 0.001) return 1.0;
+  float d = (sliceTime - uTimePos) / max(uSliceWaveWidth, 0.001);
+  return max(0.0, mix(1.0, exp(-d * d * 4.0), uSliceWave));
 }
 
 // Bildrutor nära den som spelas upp syns starkast och tonar ut åt båda håll.
@@ -147,25 +158,17 @@ void over(inout vec3 col, inout float acc, vec3 c, float a) {
 // Ytorna syns starkt i sned vinkel och nästan inte alls rakt framifrån, som glas.
 float grazing(float fres) { return 0.12 + 0.88 * pow(fres, 1.5); }
 
-// Snittet som ligger vid uppspelningens tid hämtas skarpt från videon, resten ur volymen.
-vec3 timeSliceColor(vec3 p) {
-  if (uHasVideo > 0.5 && abs(timeAt(p) - uTimePos) < uSharpTol) {
-    return texture(uVideo, vec2(p.x + 0.5, p.y + 0.5)).rgb;
-  }
-  return sampleVol(p);
-}
-
 // Tidssnitten ligger på uTimePos + k / uTimeCount. Snittet som spelas är k = 0 och
 // har full styrka; varje steg därifrån dämpas med samma faktor.
 // Snitten med full styrka ligger utspridda över hela stacken: ett vid
 // uppspelningen och sedan var n:te snitt åt båda håll. Mellan dem sjunker en båge
 // ner till uTimeFade och stiger upp igen mot nästa topp.
-float sliceFade(vec3 p) {
+// uTimeFull toppar jämnt fördelade över stacken, alla lika starka, var och en
+// med en båge före och efter sig. Räknas på snittets nummer, så att den håller
+// även när snitten är vridna och en punkt inte längre har en enda tid.
+float sliceFade(float sliceIndex) {
   if (uTimeFade <= 0.001) return 1.0;
-  // Topparna ligger en period isär i klippets tid: uTimeFull stycken jämnt
-  // fördelade, alla lika starka, var och en med en båge före och efter sig.
-  float period = 1.0 / max(uTimeFull, 1.0);
-  float phase = (timeAt(p) - uTimePos) / period;
+  float phase = sliceIndex * uTimeFull / max(uTimeCount, 1.0);
   float toNearest = abs(phase - floor(phase + 0.5));
   float arc = pow(0.5 + 0.5 * cos(6.2831853 * toNearest), uTimeCurve);
   return 1.0 - uTimeFade * (1.0 - arc);
@@ -210,11 +213,19 @@ void main() {
       uShellFront * grazing(fresIn) * filledAt(pIn) * waveAt(pIn) * edgeAt(pIn));
   }
 
-  // Snittplanens läge längs strålen: A är planet vid positionen, B avståndet till nästa.
+  // Djupsnitten kan vara vridna kring höjdaxeln. Planen definieras av sin
+  // lutade normal i världsrymd, men skär tidsaxeln på samma ställen som förut,
+  // så att ordningen och tiderna är oförändrade.
+  vec3 tiltN = vec3(sin(uTilt), 0.0, cos(uTilt));
+  vec3 tiltR = vec3(cos(uTilt), 0.0, -sin(uTilt));
+  float cZero = tiltN.z * ((0.5 - uTimePos) * uTimeDir) * uScale.z;
+  float cStep = tiltN.z * uScale.z / max(uTimeCount, 1.0);
+
   float aT = 0.0, bT = 0.0, aX = 0.0, bX = 0.0, aY = 0.0, bY = 0.0;
-  if (uTimeCount > 0.5 && abs(rd.z) > 1e-5) {
-    aT = ((0.5 - uTimePos) * uTimeDir - vOrigin.z) / rd.z;
-    bT = abs(1.0 / (uTimeCount * rd.z));
+  float denomT = dot(tiltN, rd * uScale);
+  if (uTimeCount > 0.5 && abs(denomT) > 1e-5 && abs(cStep) > 1e-6) {
+    aT = (cZero - dot(tiltN, vOrigin * uScale)) / denomT;
+    bT = abs(cStep / denomT);
   }
   if (uXCount > 0.5 && abs(rd.x) > 1e-5) {
     aX = ((uXPos - 0.5) - vOrigin.x) / rd.x;
@@ -239,7 +250,17 @@ void main() {
       ts = nextSlice(ts, tEnd, aT, bT);
       if (ts < 0.0) break;
       vec3 p = vOrigin + rd * ts;
-      over(col, acc, grade(timeSliceColor(p)), uTimeOpacity * sliceFade(p) * filledAt(p) * edgeAt(p));
+      float sliceIndex = (dot(tiltN, p * uScale) - cZero) / cStep;
+      float sliceTime = uTimePos - uTimeDir * sliceIndex / max(uTimeCount, 1.0);
+      // Snittets bredd är densamma vid vridning; det är lådan som klipper det.
+      vec2 uv = vec2(dot(p * uScale, tiltR) / uScale.x + 0.5, p.y + 0.5);
+      if (uv.x >= 0.0 && uv.x <= 1.0) {
+        vec3 c = (uHasVideo > 0.5 && abs(sliceIndex) < 0.5)
+          ? texture(uVideo, uv).rgb
+          : texture(uVolume, vec3(uv.x, 1.0 - uv.y, sliceTime)).rgb;
+        over(col, acc, grade(c), uTimeOpacity * sliceFade(sliceIndex)
+          * sliceWaveAt(sliceTime) * step(sliceTime, uFilled) * edgeAtTime(sliceTime));
+      }
       ts += 1e-6;
     }
     ts = tPrev;

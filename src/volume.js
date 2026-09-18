@@ -111,6 +111,9 @@ export class VolumeBox {
       uWave: { value: 0.7 },
       uWaveWidth: { value: 0.3 },
       uEdgeFade: { value: 0 },
+      uSliceWave: { value: 0 },
+      uSliceWaveWidth: { value: 0.3 },
+      uTilt: { value: 0 },
       uXCount: { value: 1 },
       uXPos: { value: 0.5 },
       uXOpacity: { value: 0.3 },
@@ -215,6 +218,9 @@ export class VolumeBox {
     u.uWave.value = p.wave;
     u.uWaveWidth.value = p.waveWidth;
     u.uEdgeFade.value = p.edgeFade;
+    u.uSliceWave.value = p.sliceWave;
+    u.uSliceWaveWidth.value = p.sliceWaveWidth;
+    u.uTilt.value = p.tilt;
     u.uXCount.value = p.xCount;
     u.uXPos.value = p.xPosEffective;
     u.uYCount.value = p.yCount;

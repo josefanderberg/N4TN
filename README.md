@@ -41,6 +41,7 @@ Allt körs lokalt i webbläsaren. Ingen fil laddas upp någonstans.
 | **Volym** | Antal bildrutor och upplösning i 3D-texturen — fria tal, skriv vad du vill (2–512 bildrutor, 32–720 px). Djupet går till 50, vilket drar ut lådan till en lång korridor. Raden under visar vad valet kostar i minne. Ändring kräver **Bygg om volym**. Här finns också lådans djup och tidsriktning. |
 | **Utseende** | Innehåll (bild/rörelse), blandning, densitet, toning vid klippets ändar, hur mycket ytorna syns, ljusstyrka, mättnad, glasreflex, kantglöd, kantlinjer, renderingskvalitet och bakgrundsfärg. |
 | **Snitt** | En flik per riktning: djupled (tiden), sidled (X) och höjdled (Y). Varje flik har antal, position, automatiskt svep och egen opacitet. Antalet går till 256 och styr hur många plan som läggs ut med jämna mellanrum; 0 stänger av riktningen och gråar ut resten av flikens reglage. |
+| **Special** | Vrider djupsnitten mot kameravinkeln, med håll och styrka. |
 | **Kamera** | Följ tidssnittet, fri musstyrning, pendel eller rotation, hastighet och brännvidd. |
 | **Export** | Bildformat (1:1, 4:5, 9:16, 16:9), bildfrekvens, kvalitet, antal varv och om ljudet ska med. |
 
@@ -71,10 +72,13 @@ så att den inte trycker ner toppar som ligger långt från uppspelningen.
 
 ### Vågen
 
-**Våg kring bildrutan som spelas** låter bildrutorna närmast uppspelningen synas starkast och
-tona ut åt båda håll, i stället för att hela klippet syns lika mycket hela tiden. **Vågens
-längd** är hur stor del av klippet som fortfarande syns tydligt: en kort våg ger ett smalt
-fönster som vandrar genom lådan, en lång ger en mjuk uttoning.
+Vågen låter det närmast uppspelningen synas starkast och tona ut åt båda håll, i stället för
+att hela klippet syns lika mycket hela tiden. Den har två flikar med var sin uppsättning:
+**Bildrutan som spelas** gäller volymen och lådans ytor, **Övriga djupsnitt** gäller snitten i
+djupled. De är skilda åt så att den ena inte trycker ner den andras toppar.
+
+**Vågens längd** är hur stor del av klippet som fortfarande syns tydligt: en kort våg ger ett
+smalt fönster som vandrar genom lådan, en lång ger en mjuk uttoning.
 
 Styrkan går till 4. Upp till 1 är det en mjuk uttoning; över 1 dras även de närmaste grannarna
 ner och allt utanför fönstret skärs bort helt, så att bara en tunn skiva kring den spelande
@@ -99,6 +103,14 @@ Vill du kunna komma tillbaka till ett läge du gillar: skriv ett namn i **Sparad
 inställningar** och tryck Spara. Uppsättningen hamnar i listan och ligger kvar i webbläsaren
 till nästa gång. Byter du dator eller rensar webbläsaren är det koden nedan som gäller —
 spara koden för de looks du bryr dig om, så kan du alltid få tillbaka dem.
+
+### Special
+
+**Vrid snitten efter kameran** vrider djupsnitten lika mycket som kameran är vinklad mot
+lådans mittpunkt, fast åt motsatt håll, så att de står på diagonalen men behåller sin ordning
+genom lådan. Snitten behåller sin egen bredd; det är lådan som klipper dem smalare ju mer de
+vrids. **Motsatt håll** vänder vridningen, och **Hur mycket** skalar den — kring halv styrka
+syns lutningen tydligast, full styrka vrider dem nästan på kant mot kameran.
 
 ### Följ tidssnittet
 

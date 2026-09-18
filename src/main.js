@@ -19,6 +19,11 @@ const DEFAULTS = {
   wave: 0.7,
   waveWidth: 0.3,
   edgeFade: 0,
+  sliceWave: 0,
+  sliceWaveWidth: 0.3,
+  special: false,
+  specialReverse: false,
+  specialAmount: 1,
   shellFront: 0.75,
   shellBack: 0.6,
   brightness: 1.1,
@@ -94,7 +99,7 @@ function saveParams() {
 const params = loadParams();
 
 // Rent utseende i panelen, inget som hör till bilden och sparas därför inte.
-const ui = { sliceTab: 'time' };
+const ui = { sliceTab: 'time', waveTab: 'played' };
 
 function loadPresets() {
   try {
@@ -303,6 +308,18 @@ function followSlice(timePos) {
   camera.position.z += delta;
 }
 
+// Special: djupsnitten vrids mot kamerans vinkel kring mittpunkten, så att de
+// står på diagonalen men behåller sin ordning genom lådan.
+function tiltFromCamera() {
+  if (!params.special) return 0;
+  const azimuth = Math.atan2(
+    camera.position.x - controls.target.x,
+    camera.position.z - controls.target.z,
+  );
+  const sign = params.specialReverse ? 1 : -1;
+  return sign * azimuth * params.specialAmount;
+}
+
 // --- Renderloop ----------------------------------------------------------
 
 const timer = new THREE.Timer();
@@ -326,6 +343,7 @@ function tick(timestamp) {
   frameParams.timePosEffective = params.timeFollow ? currentTimeFraction() : params.timePos;
   followSlice(frameParams.timePosEffective);
   updateCamera(dt);
+  frameParams.tilt = tiltFromCamera();
   frameParams.xPosEffective = params.xSweep
     ? 0.5 + 0.45 * Math.sin(state.sweepTime)
     : params.xPos;
@@ -944,9 +962,18 @@ const sections = [
       { type: 'range', key: 'density', label: 'Densitet', min: 0, max: 10, step: 0.05,
         visible: (p) => p.blend !== 2 },
       { type: 'range', key: 'lumWeight', label: 'Ljusa partier tätare', min: 0, max: 1, step: 0.01 },
-      { type: 'range', key: 'wave', label: 'Våg kring bildrutan som spelas', min: 0, max: 4, step: 0.01 },
+      { type: 'tabs',
+        tabs: [['played', 'Bildrutan som spelas'], ['slices', 'Övriga djupsnitt']],
+        get: () => ui.waveTab,
+        set: (value) => { ui.waveTab = value; } },
+      { type: 'range', key: 'wave', label: 'Vågens styrka', min: 0, max: 4, step: 0.01,
+        visible: () => ui.waveTab === 'played' },
       { type: 'range', key: 'waveWidth', label: 'Vågens längd', min: 0.02, max: 1, step: 0.01,
-        visible: (p) => p.wave > 0 },
+        visible: () => ui.waveTab === 'played', disabled: (p) => p.wave <= 0 },
+      { type: 'range', key: 'sliceWave', label: 'Vågens styrka', min: 0, max: 4, step: 0.01,
+        visible: () => ui.waveTab === 'slices' },
+      { type: 'range', key: 'sliceWaveWidth', label: 'Vågens längd', min: 0.02, max: 1, step: 0.01,
+        visible: () => ui.waveTab === 'slices', disabled: (p) => p.sliceWave <= 0 },
       { type: 'range', key: 'edgeFade', label: 'Tona in och ut vid ändarna', min: 0, max: 0.5, step: 0.005 },
       { type: 'range', key: 'shellFront', label: 'Yta fram', min: 0, max: 1, step: 0.01 },
       { type: 'range', key: 'shellBack', label: 'Yta bak', min: 0, max: 1, step: 0.01 },
@@ -1003,6 +1030,19 @@ const sections = [
         visible: () => ui.sliceTab === 'y', disabled: (p) => p.yCount < 1 || p.ySweep },
       { type: 'range', key: 'yOpacity', label: 'Opacitet', min: 0, max: 1, step: 0.01,
         visible: () => ui.sliceTab === 'y', disabled: (p) => p.yCount < 1 },
+    ],
+  },
+  {
+    title: 'Special',
+    accent: '#ff7ad9',
+    hint: 'Vrider djupsnitten mot kameravinkeln, så att de står på diagonalen.',
+    open: false,
+    items: [
+      { type: 'checkbox', key: 'special', label: 'Vrid snitten efter kameran' },
+      { type: 'checkbox', key: 'specialReverse', label: 'Motsatt håll',
+        disabled: (p) => !p.special },
+      { type: 'range', key: 'specialAmount', label: 'Hur mycket', min: 0, max: 1.5, step: 0.01,
+        disabled: (p) => !p.special },
     ],
   },
   {
