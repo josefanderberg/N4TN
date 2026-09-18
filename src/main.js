@@ -454,12 +454,14 @@ async function openSource(url, name) {
     fitCamera();
     video.playbackRate = Number(speedSelect.value);
     play();
+    syncPanel();
   } catch (err) {
     if (token !== state.loadToken) return;
     state.hasVideo = false;
     state.sourceUrl = null;
     volume.setVideo(null);
     showError(err);
+    syncPanel();
     return;
   }
 
@@ -474,7 +476,7 @@ async function buildVolume() {
   state.building = true;
   state.builtWith = null;
   busyIsError = false;
-  panel.refresh();
+  syncPanel();
   const cancel = () => {
     state.loadToken++;
   };
@@ -505,14 +507,13 @@ async function buildVolume() {
     });
     state.builtWith = settings;
     volume.setExposure(built.meanLuma);
-    updateVolumeInfo();
   } catch (err) {
     if (!(err instanceof CancelledError)) showError(err);
   } finally {
     if (buildId === state.buildId) {
       state.building = false;
       if (!busyIsError) hideBusy();
-      panel.refresh();
+      syncPanel();
     }
   }
 }
@@ -939,9 +940,11 @@ const sections = [
       { type: 'number', key: 'frames', label: 'Bildrutor', min: 2, max: 512, step: 1 },
       { type: 'number', key: 'size', label: 'Upplösning (px)', min: 32, max: 720, step: 1 },
       { type: 'note', id: 'volume-info', text: '' },
+      // Knappen är öppen så fort ett klipp är laddat: ett bygge som blev fel eller
+      // avbröts ska gå att göra om utan att först behöva ändra något reglage.
       { type: 'buttons', buttons: [
         { label: 'Bygg om volym', id: 'rebuild-btn', action: () => buildVolume() },
-      ], disabled: () => noVideo() || state.building || volumeUpToDate() },
+      ], disabled: () => noVideo() || state.building },
       { type: 'range', key: 'depth', label: 'Djup (tid)', min: 0.2, max: 50, step: 0.05 },
       { type: 'checkbox', key: 'flipTime', label: 'Vänd tidsriktning' },
     ],
@@ -1108,12 +1111,22 @@ function volumeEstimate() {
   const h = Math.max(2, Math.round(video.videoHeight * scale));
   const mb = (w * h * params.frames * 4) / 1e6;
   const fps = video.duration ? ` (${(params.frames / video.duration).toFixed(1)} bildrutor/s av klippet)` : '';
-  return `${w}×${h} × ${params.frames} st ≈ ${mb.toFixed(0)} MB${fps}.`;
+  const cost = `${w}×${h} × ${params.frames} st ≈ ${mb.toFixed(0)} MB${fps}.`;
+  if (state.building) return `${cost} Bygger…`;
+  if (!state.builtWith) return `${cost} Ingen volym byggd än — tryck Bygg om volym.`;
+  if (!volumeUpToDate()) return `${cost} Ändrat sedan bygget — tryck Bygg om volym.`;
+  return `${cost} Volymen är byggd så här; bygg om för att göra om den.`;
 }
 
 function updateVolumeInfo() {
   const note = $('volume-info');
   if (note) note.textContent = volumeEstimate();
+}
+
+// Panelen speglar var volymen står: både knapptillstånd och raden som beskriver bygget.
+function syncPanel() {
+  updateVolumeInfo();
+  panel.refresh();
 }
 
 function applyValues(values) {
