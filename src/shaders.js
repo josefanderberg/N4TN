@@ -161,6 +161,15 @@ void over(inout vec3 col, inout float acc, vec3 c, float a) {
 // Ytorna syns starkt i sned vinkel och nästan inte alls rakt framifrån, som glas.
 float grazing(float fres) { return 0.12 + 0.88 * pow(fres, 1.5); }
 
+// Yta fram hör till lådans framsida (z = +0.5) och Yta bak till baksidan,
+// oavsett varifrån kameran ser. Sidoväggarna följer den yta strålen träffar:
+// fram-värdet på kamerasidan och bak-värdet på den bortre.
+float shellFor(vec3 n, float nearSide) {
+  if (n.z > 0.5) return uShellFront;
+  if (n.z < -0.5) return uShellBack;
+  return nearSide;
+}
+
 // Tidssnitten ligger på uTimePos + k / uTimeCount. uTimeFull toppar med full
 // styrka ligger jämnt fördelade över stacken: en vid uppspelningen (k = 0) och
 // sedan var n:te snitt åt båda håll. Topparna har uTimeOpacity, dalarna
@@ -210,7 +219,7 @@ void main() {
     glass += tint * f * uGlass;
     glass += vec3(0.85, 0.95, 1.0) * exp(-edgeDist(pIn, nIn) * 28.0) * uEdgeGlow * 0.5;
     over(col, acc, grade(sampleVol(pIn)),
-      uShellFront * grazing(fresIn) * filledAt(pIn) * waveAt(pIn) * edgeAt(pIn));
+      shellFor(nIn, uShellFront) * grazing(fresIn) * filledAt(pIn) * waveAt(pIn) * edgeAt(pIn));
   }
 
   // Djupsnitten kan vara vridna kring höjdaxeln. Planen definieras av sin
@@ -308,7 +317,7 @@ void main() {
   if (acc < 0.985) {
     float fresOut = 1.0 - abs(dot(nOut, rdW));
     over(col, acc, grade(sampleVol(pOut)),
-      uShellBack * grazing(fresOut) * filledAt(pOut) * waveAt(pOut) * edgeAt(pOut));
+      shellFor(nOut, uShellBack) * grazing(fresOut) * filledAt(pOut) * waveAt(pOut) * edgeAt(pOut));
     glass += vec3(0.85, 0.95, 1.0) * exp(-edgeDist(pOut, nOut) * 28.0) * uEdgeGlow * 0.25 * (1.0 - acc);
   }
 
