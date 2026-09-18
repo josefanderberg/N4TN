@@ -56,6 +56,7 @@ const DEFAULTS = {
   xPos: 0.5,
   xSweep: false,
   xFan: false,
+  xSpinSpeed: 0.35,
   xOpacity: 0.3,
   yCount: 0,
   yPos: 0.5,
@@ -382,7 +383,7 @@ function tick(timestamp) {
   // I solfjäderläget snurrar svepet fläkten runt axeln i stället för att vagga.
   frameParams.xPosEffective = params.xSweep
     ? (params.xFan
-      ? (state.sweepTime * 0.35) % 1
+      ? (state.sweepTime * params.xSpinSpeed) % 1
       : 0.5 + 0.45 * Math.sin(state.sweepTime))
     : params.xPos;
   // Egen takt för höjdleden, annars rör sig de två snitten i lås med varandra.
@@ -1179,7 +1180,11 @@ const sections = [
         info: 'Sidosnitten går genom lådans mittaxel som en solfjäder i stället för rakt igenom. Position vrider solfjädern, och svepet snurrar den som en hologramfläkt.' },
       { type: 'checkbox', key: 'xSweep', label: 'Svep automatiskt',
         visible: () => ui.sliceTab === 'x', disabled: (p) => p.xCount < 1,
-        info: 'Låter sidledssnitten vandra fram och tillbaka av sig själva.' },
+        info: 'Låter sidledssnitten vandra fram och tillbaka av sig själva — eller snurra, i solfjäderläget.' },
+      { type: 'range', key: 'xSpinSpeed', label: 'Snurrhastighet', min: 0.02, max: 2, step: 0.01,
+        visible: () => ui.sliceTab === 'x',
+        disabled: (p) => p.xCount < 1 || !p.xFan || !p.xSweep,
+        info: 'Hur fort solfjädern snurrar runt axeln när svepet är på.' },
       { type: 'range', key: 'xPos', label: 'Position', min: 0, max: 1, step: 0.001,
         visible: () => ui.sliceTab === 'x', disabled: (p) => p.xCount < 1 || p.xSweep,
         info: 'Var i sidled snittet ligger.' },

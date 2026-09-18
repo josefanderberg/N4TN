@@ -136,8 +136,8 @@ vridningen, och **Hur mycket** skalar den — kring halv styrka syns lutningen t
 
 Under Ögonblick → Sidled kan snitten vinklas mot mitten: **Vinkla mot mitten (solfjäder)**
 gör dem till plan genom lådans mittaxel, jämnt spridda i vinkel, i stället för att gå rakt
-igenom — som bladen i en hologramfläkt. **Position** vrider solfjädern och **Svep
-automatiskt** snurrar den runt axeln.
+igenom — som bladen i en hologramfläkt. **Position** vrider solfjädern, **Svep automatiskt**
+snurrar den runt axeln och **Snurrhastighet** styr hur fort.
 
 ### Följ tidssnittet
 
