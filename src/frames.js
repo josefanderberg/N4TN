@@ -64,6 +64,7 @@ function createVideo(src) {
   video.playsInline = true;
   video.preload = 'auto';
   video.src = src;
+  video.load();
   return video;
 }
 
@@ -72,8 +73,13 @@ function releaseVideo(video) {
   video.load();
 }
 
-// Antal videoelement som söker parallellt. Sökning är flaskhalsen, så detta ger stor vinst.
-const PARALLEL = 4;
+// Antal videoelement som söker parallellt. Sökning är flaskhalsen, så detta ger
+// stor vinst — men en telefon har få avkodare, och fler element än så gör bara
+// att de köar eller vägrar starta. Uppspelningsvideon tar dessutom en av dem.
+function parallelLimit() {
+  const touch = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
+  return touch ? 2 : 4;
+}
 
 /**
  * Plockar ut `frames` jämnt fördelade bildrutor ur videon och packar dem i en 3D-textur.
@@ -85,7 +91,11 @@ export async function extractFrames(src, { frames, size, onStart, onProgress, is
   const videos = [first];
 
   try {
-    await once(first, 'loadeddata', 20000);
+    await once(first, 'loadeddata', 20000).catch((err) => {
+      throw err.message.startsWith('Timeout')
+        ? new Error('Videon gick inte att läsa för bygget. Tryck Bygg om volym igen.')
+        : err;
+    });
     const duration = await resolveDuration(first);
     const vw = first.videoWidth;
     const vh = first.videoHeight;
@@ -101,17 +111,22 @@ export async function extractFrames(src, { frames, size, onStart, onProgress, is
     const info = { width, height, frames, duration, videoWidth: vw, videoHeight: vh };
     onStart?.(texture, info);
 
-    // Varje arbetare tar var N:te bildruta i stigande ordning.
-    const workers = Math.min(PARALLEL, frames);
-    for (let k = 1; k < workers; k++) videos.push(createVideo(src));
-    await Promise.all(videos.slice(1).map((v) => once(v, 'loadeddata', 20000)));
+    // Varje arbetare tar var N:te bildruta i stigande ordning. Extraelementen är
+    // en ren snabbhetsvinst, så de som inte kommer igång lämnas därhän i stället
+    // för att fälla hela bygget.
+    const wanted = Math.min(parallelLimit(), frames);
+    for (let k = 1; k < wanted; k++) videos.push(createVideo(src));
+    const started = await Promise.allSettled(
+      videos.slice(1).map((v) => once(v, 'loadeddata', 20000)));
+    const crew = [first, ...videos.slice(1).filter((_, i) => started[i].status === 'fulfilled')];
+    const workers = crew.length;
 
     // Medelljuset används för automatisk exponering i det adderande läget.
     let lumaSum = 0;
     let lumaCount = 0;
     let done = 0;
     // Nästa bildruta per arbetare; allt före den minsta är garanterat ifyllt.
-    const next = videos.map((_, k) => k);
+    const next = crew.map((_, k) => k);
     const contiguous = () => Math.min(...next) / frames;
     const work = async (video, k) => {
       const canvas = document.createElement('canvas');
@@ -136,7 +151,7 @@ export async function extractFrames(src, { frames, size, onStart, onProgress, is
         onProgress?.(done, frames, texture, contiguous());
       }
     };
-    await Promise.all(videos.map(work));
+    await Promise.all(crew.map(work));
 
     if (isCancelled?.()) throw new CancelledError();
     return { texture, ...info, meanLuma: lumaCount ? lumaSum / lumaCount / 255 : 0.3 };

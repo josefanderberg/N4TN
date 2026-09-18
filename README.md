@@ -37,15 +37,19 @@ Allt körs lokalt i webbläsaren. Ingen fil laddas upp någonstans.
 
 ## Reglagen
 
+Varje reglage har en liten **i**-knapp intill etiketten som fäller ut en förklaring av vad
+det ändrar.
+
 | Grupp | Vad det gör |
 | --- | --- |
-| **Sparade inställningar** | Namngivna uppsättningar av alla reglage: spara, hämta tillbaka, ta bort. Samt en kort kod för att dela eller flytta en uppsättning. |
-| **Volym** | Antal bildrutor och upplösning i 3D-texturen — fria tal, skriv vad du vill (2–512 bildrutor, 32–720 px). Djupet går till 50, vilket drar ut lådan till en lång korridor. Raden under visar vad valet kostar i minne. Ändring kräver **Bygg om volym**. Här finns också lådans djup och tidsriktning. |
-| **Utseende** | Innehåll (bild/rörelse), blandning, densitet, toning vid klippets ändar, hur mycket ytorna syns, ljusstyrka, mättnad, glasreflex, kantglöd, kantlinjer, renderingskvalitet och bakgrundsfärg. |
-| **Snitt** | En flik per riktning: djupled (tiden), sidled (X) och höjdled (Y). Varje flik har antal, position, automatiskt svep och egen opacitet. Antalet går till 256 och styr hur många plan som läggs ut med jämna mellanrum; 0 stänger av riktningen och gråar ut resten av flikens reglage. |
-| **Special** | Vrider djupsnitten mot kameravinkeln, med håll och styrka. |
-| **Kamera** | Följ tidssnittet, fri musstyrning, pendel eller rotation, hastighet och brännvidd. |
+| **Volym** | Sammanhanget: lådan som klippet byggs in i. Antal bildrutor och upplösning i 3D-texturen — fria tal, skriv vad du vill (2–512 bildrutor, 32–720 px). Raden under visar vad valet kostar i minne och om volymen är byggd med just de värdena. Ändring kräver **Bygg om volym**, som går att trycka på så fort ett klipp är laddat — även med oförändrade värden, för att göra om ett bygge som blev fel eller avbröts. Djupet är ett reglage upp till 5; **Utöka djupet…** öppnar ett fritt fält där du skriver vad du vill upp till 200. Längst ner lådans egna kanter: kantlinjer, kantglöd och bakgrundsfärg. |
+| **Utseende** | Helheten inne i lådan: innehåll (bild/rörelse), blandning, densitet, toning vid klippets ändar, hur mycket ytorna syns, ljusstyrka, mättnad, glasreflex och renderingskvalitet. |
+| **Ögonblick** | Bildrutorna som skarpa plan — flera tider samtidigt. En flik per riktning: djupled (tiden), sidled (X) och höjdled (Y), var och en med antal, position, uppspelning/svep och opacitet. Antalet går till 256; 0 (eller avbockat) stänger av riktningen och gråar ut resten av flikens reglage. |
+| **Tidsaura** | Mönstret mellan ögonblicken. Vågen i två underflikar — Bildrutan som spelas och Övriga ögonblick — samt rampen: opacitet mellan ögonblicken, hur många som lyser för fullt och Bågens form. |
+| **Special** | Vrider ögonblicken mot kameravinkeln, med håll och styrka. |
+| **Kamera** | Följ ögonblicket, fri musstyrning, pendel eller rotation, hastighet och brännvidd. |
 | **Export** | Bildformat (1:1, 4:5, 9:16, 16:9), bildfrekvens, kvalitet, antal varv och om ljudet ska med. |
+| **Sparade inställningar** | Längst ner: namngivna uppsättningar av alla reglage — spara, hämta tillbaka, ta bort — samt en kort kod för att dela eller flytta en uppsättning. |
 
 ### Innehåll
 
@@ -55,31 +59,34 @@ Allt körs lokalt i webbläsaren. Ingen fil laddas upp någonstans.
   **Rörelsekänslighet** styr hur mycket små rörelser förstärks.
 * **Bild** — råa bildrutor. Ger den lugnare, rökiga looken där lådans ytor dominerar.
 
-### Snitten i djupled
+### Ögonblicken
 
-**Antal** lägger ut flera tidssnitt med jämna mellanrum, som alla följer uppspelningen.
+Ögonblicken är tidssnitten: bildrutor som skarpa plan tvärs genom lådan, så att flera tider
+syns samtidigt. **Antal** lägger ut dem med jämna mellanrum, och alla följer uppspelningen.
+**Opacitet** är nivån på ögonblicken med full styrka.
 
-**Snitt med full styrka** är hur många av snitten som lyser för fullt samtidigt, jämnt
-fördelade över klippet. 1 ger ett — det som spelas. 2 ger två som ligger en halv film isär och
-går samtidigt, 3 ger tre en tredjedel isär, och så vidare. Alla är lika starka och var och en
-har en båge före och efter sig. De vandrar med uppspelningen: när en lämnar bakkanten kommer
-nästa in framifrån.
+### Tidsauran
 
-**Uttoning mellan dem** är hur djupt det sjunker i dalarna mellan topparna — 0 ger lika starka
-snitt hela vägen, och då spelar antalet fulla ingen roll, så de reglagen gråas ut. Vid 1
-släcks dalarna helt. Tänk också på att hög opacitet gör att det främsta snittet skymmer de
-bakom, oavsett hur många toppar som är inställda. **Bågens form** ändrar kurvan däremellan: låga värden
-ger breda toppar som nästan möts, höga ger spetsiga toppar med tydliga mellanrum.
+Tidsauran är mönstret mellan ögonblicken — hur de tonar i och ur varandra.
 
-Tidssnitten styrs bara av de här reglagen. Vågen under Utseende gäller volymen och lådans ytor,
-så att den inte trycker ner toppar som ligger långt från uppspelningen.
+**Ögonblick med full styrka** är hur många som lyser för fullt samtidigt, jämnt fördelade
+över klippet. 1 ger ett — det som spelas. 2 ger två som ligger en halv film isär och går
+samtidigt, 3 ger tre en tredjedel isär, och så vidare. De vandrar med uppspelningen: när ett
+lämnar bakkanten kommer nästa in framifrån.
+
+**Opacitet mellan ögonblicken** är där auran bottnar mellan de fulla. Ligger den i nivå med
+ögonblickens egen opacitet är alla lika starka och rampen platt; med 0 släcks dalarna helt.
+Tänk också på att hög opacitet gör att det främsta ögonblicket skymmer de bakom, oavsett hur
+många toppar som är inställda. **Bågens form** ändrar kurvan mellan de två nivåerna: låga
+värden ger breda toppar som nästan möts, höga ger spetsiga toppar med tydliga mellanrum.
 
 ### Vågen
 
 Vågen låter det närmast uppspelningen synas starkast och tona ut åt båda håll, i stället för
-att hela klippet syns lika mycket hela tiden. Den har två flikar med var sin uppsättning:
-**Bildrutan som spelas** gäller volymen och lådans ytor, **Övriga djupsnitt** gäller snitten i
-djupled. De är skilda åt så att den ena inte trycker ner den andras toppar.
+att hela klippet syns lika mycket hela tiden. Den ligger överst under Tidsaura, i två
+underflikar med var sin uppsättning: **Bildrutan som spelas** gäller volymen och lådans ytor,
+**Övriga ögonblick** gäller ögonblicken i djupled och dyker upp först när Antal är över 1. De
+är skilda åt så att den ena inte trycker ner den andras toppar.
 
 **Vågens längd** är hur stor del av klippet som fortfarande syns tydligt: en kort våg ger ett
 smalt fönster som vandrar genom lådan, en lång ger en mjuk uttoning.
@@ -110,11 +117,12 @@ spara koden för de looks du bryr dig om, så kan du alltid få tillbaka dem.
 
 ### Special
 
-**Vrid snitten efter kameran** vrider djupsnitten lika mycket som kameran är vinklad mot
+**Vrid ögonblicken efter kameran** vrider ögonblicken lika mycket som kameran är vinklad mot
 lådans mittpunkt, fast åt motsatt håll, så att de står på diagonalen men behåller sin ordning
-genom lådan. Snitten behåller sin egen bredd; det är lådan som klipper dem smalare ju mer de
-vrids. **Motsatt håll** vänder vridningen, och **Hur mycket** skalar den — kring halv styrka
-syns lutningen tydligast, full styrka vrider dem nästan på kant mot kameran.
+genom lådan. Ögonblicken behåller sin fulla bredd; i stället smalnar lådan av med vinkeln och
+kramar dem, så att varje ögonblick går obrutet från vägg till vägg och stacken blir en jämn
+trappa längs samma raka bana. **Motsatt håll** vänder vridningen, och **Hur mycket** skalar
+den — kring halv styrka syns lutningen tydligast.
 
 ### Följ tidssnittet
 

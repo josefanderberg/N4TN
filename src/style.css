@@ -510,6 +510,47 @@ select {
   font-size: 12px;
 }
 
+/* Ett i intill etiketten; förklaringen fälls ut som en egen rad under. */
+.info-btn {
+  appearance: none;
+  flex: none;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  margin-left: 6px;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: transparent;
+  color: var(--text-faint);
+  font: italic 700 10px/1 Georgia, 'Times New Roman', serif;
+  cursor: help;
+  vertical-align: 1px;
+}
+
+.info-btn:hover,
+.info-btn.is-open {
+  color: var(--text);
+  border-color: var(--text-dim);
+}
+
+.row-info {
+  grid-column: 1 / -1;
+  margin: 0;
+  padding-left: 8px;
+  border-left: 2px solid var(--border);
+  color: var(--text-faint);
+  font-size: 12px;
+}
+
+/* Reglage som hör till fliklisten ovanför hänger ihop med den visuellt,
+   så att man ser var flikens innehåll slutar och resten av avsnittet tar vid. */
+.row-pane {
+  margin-left: 5px;
+  padding-left: 10px;
+  border-left: 2px solid var(--border);
+  border-left: 2px solid color-mix(in srgb, var(--sec-accent) 45%, transparent);
+}
+
 .presets {
   gap: 8px;
 }

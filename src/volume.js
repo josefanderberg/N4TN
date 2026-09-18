@@ -35,23 +35,42 @@ class SliceOutlines {
     this.lines.frustumCulled = false;
   }
 
-  write(offset, coord, corner) {
-    const a = this.array;
-    if (this.axis === 0) a.set([coord, corner[1], corner[0]], offset);
-    else if (this.axis === 1) a.set([corner[0], coord, corner[1]], offset);
-    else a.set([corner[0], corner[1], coord], offset);
-    return offset + 3;
+  // De fyra hörnen för snittet vid `coord`. Vridna ögonblick (bara djupled)
+  // blir parallellogram: snittets breddaxel klippt mot lådans väggar och
+  // fram-/baksida, så konturen följer exakt det som syns av snittet.
+  cornersFor(coord, tilt) {
+    if (this.axis === 0) return RECT.map((c) => [coord, c[1], c[0]]);
+    if (this.axis === 1) return RECT.map((c) => [c[0], coord, c[1]]);
+    if (!tilt) return RECT.map((c) => [c[0], c[1], coord]);
+    let dLo = -tilt.dHalf;
+    let dHi = tilt.dHalf;
+    if (Math.abs(tilt.sinT) > 1e-6) {
+      const a = ((coord - 0.5) * tilt.sz) / tilt.sinT;
+      const b = ((coord + 0.5) * tilt.sz) / tilt.sinT;
+      dLo = Math.max(dLo, Math.min(a, b));
+      dHi = Math.min(dHi, Math.max(a, b));
+    }
+    // Helt utanför lådan: nollsegment, som inte ritar något.
+    if (dLo >= dHi) return RECT.map(() => [0, 0, coord]);
+    const at = (d, y) => [
+      (d * tilt.cosT) / (tilt.sx * tilt.squeeze),
+      y,
+      coord - (d * tilt.sinT) / tilt.sz,
+    ];
+    return [at(dLo, -0.5), at(dHi, -0.5), at(dHi, 0.5), at(dLo, 0.5)];
   }
 
-  update(coords) {
+  update(coords, tilt = null) {
     const count = coords.length;
     this.lines.visible = count > 0 && count <= MAX_OUTLINES;
     if (!this.lines.visible) return;
     let offset = 0;
     for (const coord of coords) {
+      const pts = this.cornersFor(coord, tilt);
       for (let e = 0; e < 4; e++) {
-        offset = this.write(offset, coord, RECT[e]);
-        offset = this.write(offset, coord, RECT[(e + 1) % 4]);
+        this.array.set(pts[e], offset);
+        this.array.set(pts[(e + 1) % 4], offset + 3);
+        offset += 6;
       }
     }
     this.lines.geometry.setDrawRange(0, count * 8);
@@ -104,7 +123,7 @@ export class VolumeBox {
       uTimeCount: { value: 1 },
       uTimePos: { value: 0 },
       uTimeOpacity: { value: 0.92 },
-      uTimeFade: { value: 0.4 },
+      uTimeRestOpacity: { value: 0.55 },
       uTimeFull: { value: 1 },
       uTimeCurve: { value: 1 },
       uSharpTol: { value: 0.004 },
@@ -114,6 +133,7 @@ export class VolumeBox {
       uSliceWave: { value: 0 },
       uSliceWaveWidth: { value: 0.3 },
       uTilt: { value: 0 },
+      uSliceW: { value: 1 },
       uXCount: { value: 1 },
       uXPos: { value: 0.5 },
       uXOpacity: { value: 0.3 },
@@ -196,6 +216,18 @@ export class VolumeBox {
   // Anropas varje bildruta innan rendering.
   update(camera, p) {
     const u = this.uniforms;
+
+    // Special: ett vridet ögonblick har smalare fotavtryck i sidled, så lådan
+    // kramar snitten i stället för att klippa dem — varje snitt går obrutet
+    // från vägg till vägg och stacken blir en jämn trappa genom lådan.
+    const s = this.size;
+    const cosT = Math.cos(p.tilt || 0);
+    const sinT = Math.sin(p.tilt || 0);
+    const squeeze = Math.max(Math.abs(cosT), 0.2);
+    this.group.scale.set(s.x * squeeze, s.y, s.z);
+    u.uScale.value.copy(this.group.scale);
+    u.uSliceW.value = s.x;
+
     u.uSteps.value = p.steps;
     u.uTimeDir.value = p.flipTime ? -1 : 1;
     u.uContent.value = p.content;
@@ -212,7 +244,7 @@ export class VolumeBox {
     u.uTimeCount.value = p.timeOn ? p.timeCount : 0;
     u.uTimePos.value = p.timePosEffective;
     u.uTimeOpacity.value = p.timeOpacity;
-    u.uTimeFade.value = p.timeFade;
+    u.uTimeRestOpacity.value = p.timeRestOpacity;
     u.uTimeFull.value = p.timeFull;
     u.uTimeCurve.value = p.timeCurve;
     u.uWave.value = p.wave;
@@ -236,8 +268,12 @@ export class VolumeBox {
     const dir = p.flipTime ? -1 : 1;
     this.slices[0].update(planeCoords(p.xPosEffective - 0.5, p.xCount));
     this.slices[1].update(planeCoords(p.yPosEffective - 0.5, p.yCount));
+    // Så mycket av snittets halva bredd som ryms i den avsmalnade lådan.
+    const dHalf = Math.min(0.5 * s.x, (0.5 * s.x * squeeze) / Math.max(Math.abs(cosT), 1e-6));
+    const tiltInfo = p.tilt ? { cosT, sinT, sx: s.x, sz: s.z, squeeze, dHalf } : null;
     this.slices[2].update(
       planeCoords((0.5 - p.timePosEffective) * dir, p.timeOn ? p.timeCount : 0),
+      tiltInfo,
     );
 
     this.edges.visible = p.lines > 0;
