@@ -621,6 +621,28 @@ input[type='checkbox'] {
   margin: 0;
 }
 
+/* Standardvärdets märke på reglaget; tummen glider ovanpå det. */
+.range-wrap {
+  position: relative;
+  display: block;
+}
+
+.range-wrap input {
+  position: relative;
+  z-index: 1;
+}
+
+.range-tick {
+  position: absolute;
+  top: 50%;
+  width: 2px;
+  height: 9px;
+  transform: translate(-50%, -50%);
+  border-radius: 1px;
+  background: var(--text-faint);
+  pointer-events: none;
+}
+
 input[type='range'] {
   appearance: none;
   width: 100%;

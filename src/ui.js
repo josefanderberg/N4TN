@@ -41,9 +41,20 @@ export function buildPanel(root, sections, params, defaults, onChange) {
       params[key] = defaults[key];
       emit(key);
     });
+    // Ett litet streck märker ut standardvärdet, så man hittar tillbaka efter
+    // en ändring. Läget kompenserar för att tummen (12 px) inte når kanterna.
+    let slider = input;
+    if (typeof defaults[key] === 'number') {
+      const fraction = Math.min(1, Math.max(0, (defaults[key] - min) / (max - min)));
+      const tick = el('span', {
+        class: 'range-tick',
+        style: `left: calc(${(fraction * 100).toFixed(2)}% + ${(6 - 12 * fraction).toFixed(2)}px)`,
+      });
+      slider = el('span', { class: 'range-wrap' }, tick, input);
+    }
     const row = el('label', { class: 'row row-range', title: 'Dubbelklicka för att återställa' },
       el('span', { class: 'row-head' }, el('span', {}, label), output),
-      input,
+      slider,
     );
     bindings.push({ item, row, sync: () => {
       input.value = params[key];
