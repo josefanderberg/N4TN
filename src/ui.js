@@ -168,7 +168,8 @@ export function buildPanel(root, sections, params, defaults, onChange) {
   };
 
   for (const section of sections) {
-    const details = el('details', { class: 'sec', open: section.open !== false });
+    // Alla avsnitt är hopfällda från start; det ger överblick i stället för en vägg av reglage.
+    const details = el('details', { class: 'sec', open: section.open === true });
     if (section.accent) details.style.setProperty('--sec-accent', section.accent);
     details.append(el('summary', {}, el('span', { class: 'sec-title' }, section.title)));
     const body = el('div', { class: 'sec-body' });

@@ -64,7 +64,9 @@ har en båge före och efter sig. De vandrar med uppspelningen: när en lämnar 
 nästa in framifrån.
 
 **Uttoning mellan dem** är hur djupt det sjunker i dalarna mellan topparna — 0 ger lika starka
-snitt hela vägen, 1 släcker dalarna helt. **Bågens form** ändrar kurvan däremellan: låga värden
+snitt hela vägen, och då spelar antalet fulla ingen roll, så de reglagen gråas ut. Vid 1
+släcks dalarna helt. Tänk också på att hög opacitet gör att det främsta snittet skymmer de
+bakom, oavsett hur många toppar som är inställda. **Bågens form** ändrar kurvan däremellan: låga värden
 ger breda toppar som nästan möts, höga ger spetsiga toppar med tydliga mellanrum.
 
 Tidssnitten styrs bara av de här reglagen. Vågen under Utseende gäller volymen och lådans ytor,
@@ -139,6 +141,7 @@ inte, och en kod som blivit fel avvisas i stället för att ge ett halvt resulta
 
 **Återställ** uppe till höger nollställer alla reglage (två klick, så att en felklickning inte
 slår ut allt). Antal bildrutor och upplösning behålls, eftersom de kräver en ombyggnad.
+Avsnitten i panelen är hopfällda från start; klicka på rubriken för att öppna ett.
 Dubbelklick på ett enskilt reglage återställer bara det. Mellanslag spelar/pausar.
 Inställningarna sparas i webbläsaren till nästa gång.
 
