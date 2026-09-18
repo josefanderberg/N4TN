@@ -135,8 +135,8 @@ medan du bläddrar bland dem.
 
 ## Export
 
-Exporten spelar in canvasen i realtid från videons början till slut, så en 10-sekundersvideo
-tar 10 sekunder att exportera. Håll fliken synlig under tiden — webbläsaren pausar
+Exporten spelar in canvasen i realtid från videons början till slut i vald hastighet, så en
+10-sekundersvideo tar 10 sekunder att exportera i 1× och fem i 2×. Håll fliken synlig under tiden — webbläsaren pausar
 renderingen i bakgrundsflikar. Filen laddas ned som MP4 om webbläsaren stödjer det
 (Chrome, Safari), annars som WebM.
 

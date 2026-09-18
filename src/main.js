@@ -47,6 +47,7 @@ const DEFAULTS = {
   ySweep: false,
   yOpacity: 0.3,
 
+  speed: 1,
   followSlice: true,
   motion: 'free',
   motionSpeed: 0.5,
@@ -581,6 +582,10 @@ function updateTransport() {
   playBtn.disabled = !enabled;
   scrub.disabled = !enabled;
   speedSelect.disabled = !enabled;
+  syncSpeed();
+  if (state.hasVideo && !state.exporting && video.playbackRate !== params.speed) {
+    video.playbackRate = params.speed;
+  }
   iconPlay.hidden = !video.paused;
   iconPause.hidden = video.paused;
   if (!state.hasVideo) return;
@@ -598,8 +603,20 @@ scrub.addEventListener('change', () => {
   scrubbing = false;
 });
 speedSelect.addEventListener('change', (e) => {
-  video.playbackRate = Number(e.target.value);
+  params.speed = Number(e.target.value);
+  video.playbackRate = params.speed;
+  saveParams();
 });
+
+// Hastigheten kan också komma från en sparad inställning eller en delad kod.
+function syncSpeed() {
+  const value = String(params.speed);
+  if (speedSelect.value === value) return;
+  if (![...speedSelect.options].some((o) => o.value === value)) {
+    speedSelect.append(new Option(`${params.speed}×`, value));
+  }
+  speedSelect.value = value;
+}
 $('mute-btn').addEventListener('click', () => {
   state.muted = !state.muted;
   applyMute();
@@ -666,7 +683,7 @@ async function exportVideo() {
     await ctx.resume();
     video.pause();
     video.loop = false;
-    video.playbackRate = 1;
+    video.playbackRate = params.speed;
     video.currentTime = 0;
     await waitFor(video, 'seeked');
 
@@ -1029,7 +1046,7 @@ const sections = [
         { label: 'Spara bild', action: saveSnapshot },
       ], disabled: () => noVideo() || state.building },
       { type: 'note', id: 'export-status',
-        text: 'Exporten spelar in videon i realtid från början till slut. Håll fliken synlig under tiden.' },
+        text: 'Exporten spelar in i realtid i den hastighet du valt under videon. Håll fliken synlig under tiden.' },
     ],
   },
 ];
