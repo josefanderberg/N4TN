@@ -59,7 +59,7 @@ class SliceOutlines {
     // Helt utanför lådan: nollsegment, som inte ritar något.
     if (dLo >= dHi) return RECT.map(() => [0, 0, coord]);
     const at = (d, y) => [
-      (d * tilt.cosT) / (tilt.sx * tilt.squeeze),
+      (d * tilt.cosT) / tilt.sx,
       y,
       coord - (d * tilt.sinT) / tilt.sz,
     ];
@@ -256,15 +256,13 @@ export class VolumeBox {
   update(camera, p) {
     const u = this.uniforms;
 
-    // Special: ett vridet ögonblick har smalare fotavtryck i sidled, så lådan
-    // kramar snitten i stället för att klippa dem — varje snitt går obrutet
-    // från vägg till vägg och stacken blir en jämn trappa genom lådan.
+    // Special: lådan behåller sin fulla bredd. Vridna ögonblick sträcker sig
+    // från vägg till vägg och kapas av fram- och baksidan.
     const s = this.size;
     const cosT = Math.cos(p.tilt || 0);
     const sinT = Math.sin(p.tilt || 0);
-    const squeeze = Math.max(Math.abs(cosT), 0.2);
-    this.group.scale.set(s.x * squeeze, s.y, s.z);
-    u.uScale.value.copy(this.group.scale);
+    this.group.scale.copy(s);
+    u.uScale.value.copy(s);
     u.uSliceW.value = s.x;
 
     u.uSteps.value = p.steps;
@@ -321,8 +319,9 @@ export class VolumeBox {
     this.slices[0].update(planeCoords(p.xPosEffective - 0.5, p.xCount), null, taper);
     this.slices[1].update(planeCoords(p.yPosEffective - 0.5, p.yCount), null, taper);
     // Så mycket av snittets halva bredd som ryms i den avsmalnade lådan.
-    const dHalf = Math.min(0.5 * s.x, (0.5 * s.x * squeeze) / Math.max(Math.abs(cosT), 1e-6));
-    const tiltInfo = p.tilt ? { cosT, sinT, sx: s.x, sz: s.z, squeeze, dHalf } : null;
+    // Halva snittlängden fram till väggarna; nära på kant tar fram-/bakklippet vid.
+    const dHalf = (0.5 * s.x) / Math.max(Math.abs(cosT), 0.05);
+    const tiltInfo = p.tilt ? { cosT, sinT, sx: s.x, sz: s.z, dHalf } : null;
     this.slices[2].update(
       planeCoords((0.5 - p.timePosEffective) * dir, p.timeOn ? p.timeCount : 0),
       tiltInfo,

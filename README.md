@@ -122,10 +122,10 @@ spara koden för de looks du bryr dig om, så kan du alltid få tillbaka dem.
 
 **Vrid ögonblicken efter kameran** vrider ögonblicken lika mycket som kameran är vinklad mot
 lådans mittpunkt, fast åt motsatt håll, så att de står på diagonalen men behåller sin ordning
-genom lådan. Ögonblicken behåller sin fulla bredd; i stället smalnar lådan av med vinkeln och
-kramar dem, så att varje ögonblick går obrutet från vägg till vägg och stacken blir en jämn
-trappa längs samma raka bana. **Motsatt håll** vänder vridningen, och **Hur mycket** skalar
-den — kring halv styrka syns lutningen tydligast.
+genom lådan. Lådan behåller sin fulla bredd: varje ögonblick sträcker sig från vägg till vägg
+— utanför bildrutan smetas kanten ut, som på väggarna — och kapas av lådans fram- och baksida.
+**Motsatt håll** vänder vridningen, och **Hur mycket** skalar den — kring halv styrka syns
+lutningen tydligast.
 
 ### Följ tidssnittet
 

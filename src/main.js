@@ -1174,7 +1174,7 @@ const sections = [
     hint: 'Vrider ögonblicken mot kameravinkeln, så att de står på diagonalen.',
     items: [
       { type: 'checkbox', key: 'special', label: 'Vrid ögonblicken efter kameran',
-        info: 'Ögonblicken vrider sig mot kameran när den åker runt lådan. Lådan smalnar av med vinkeln, så varje ögonblick går helt från vägg till vägg.' },
+        info: 'Ögonblicken vrider sig mot kameran när den åker runt lådan. De går från vägg till vägg och kapas av lådans fram- och baksida.' },
       { type: 'checkbox', key: 'specialReverse', label: 'Motsatt håll',
         disabled: (p) => !p.special,
         info: 'Vrider åt andra hållet i förhållande till kameran.' },

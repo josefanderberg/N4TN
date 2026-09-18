@@ -332,18 +332,16 @@ void main() {
       vec3 p = vOrigin + rd * ts;
       float sliceIndex = (dot(tiltN, p * uScale) - cZero) / cStep;
       float sliceTime = uTimePos - uTimeDir * sliceIndex / max(uTimeCount, 1.0);
-      // Snittet behåller sin fulla bredd vid vridning; lådan är i stället
-      // avsmalnad så att snittet precis når från vägg till vägg. Tratten
-      // skalar bildrutan kring sin mitt på det djupet.
+      // Vridna snitt går från vägg till vägg — utanför bildrutan smetas
+      // kanten ut, som på väggarna — och kapas av lådans fram- och baksida.
+      // Tratten skalar bildrutan kring sin mitt på det djupet.
       vec2 uv = vec2(dot(p * uScale, tiltR) / uSliceW + 0.5, p.y + 0.5);
-      uv = (uv - 0.5) / taperAt(p.z) + 0.5;
-      if (uv.x >= 0.0 && uv.x <= 1.0 && uv.y >= 0.0 && uv.y <= 1.0) {
-        vec3 c = (uHasVideo > 0.5 && abs(sliceIndex) < 0.5)
-          ? texture(uVideo, uv).rgb
-          : texture(uVolume, vec3(uv.x, 1.0 - uv.y, sliceTime)).rgb;
-        over(col, acc, grade(c), sliceAlpha(sliceIndex)
-          * sliceWaveAt(sliceTime) * step(sliceTime, uFilled) * edgeAtTime(sliceTime));
-      }
+      uv = clamp((uv - 0.5) / taperAt(p.z) + 0.5, 0.0, 1.0);
+      vec3 c = (uHasVideo > 0.5 && abs(sliceIndex) < 0.5)
+        ? texture(uVideo, uv).rgb
+        : texture(uVolume, vec3(uv.x, 1.0 - uv.y, sliceTime)).rgb;
+      over(col, acc, grade(c), sliceAlpha(sliceIndex)
+        * sliceWaveAt(sliceTime) * step(sliceTime, uFilled) * edgeAtTime(sliceTime));
       ts += 1e-6;
     }
     ts = tPrev;
