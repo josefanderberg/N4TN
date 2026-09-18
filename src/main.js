@@ -32,6 +32,8 @@ const DEFAULTS = {
   edgeGlow: 0.6,
   lines: 0.3,
   depth: 1.3,
+  sizeFront: 1,
+  sizeBack: 1,
   flipTime: false,
   steps: 200,
 
@@ -235,9 +237,11 @@ function fitCamera() {
   let maxUp = 0;
   let maxDepth = 0;
   for (let i = 0; i < 8; i++) {
+    // Tratten: framsidans hörn (z = +0.5) skalas med Storlek fram, baksidans med bak.
+    const w = i & 4 ? params.sizeFront : params.sizeBack;
     _corner.set(
-      (i & 1 ? 0.5 : -0.5) * size.x,
-      (i & 2 ? 0.5 : -0.5) * size.y,
+      (i & 1 ? 0.5 : -0.5) * size.x * w,
+      (i & 2 ? 0.5 : -0.5) * size.y * w,
       (i & 4 ? 0.5 : -0.5) * size.z,
     );
     maxRight = Math.max(maxRight, Math.abs(_corner.dot(_right)));
@@ -993,6 +997,11 @@ const sections = [
           onParamChange('depth');
         } },
       ], visible: () => ui.depthExpanded },
+      // Olika storlek fram och bak gör lådan till en tratt, åt valfritt håll.
+      { type: 'range', key: 'sizeFront', label: 'Storlek fram', min: 0.2, max: 3, step: 0.01,
+        info: 'Framsidans storlek. Skiljer den sig från Storlek bak blir lådan en tratt, och bilden växer eller krymper genom klippet.' },
+      { type: 'range', key: 'sizeBack', label: 'Storlek bak', min: 0.2, max: 3, step: 0.01,
+        info: 'Samma som Storlek fram, men för lådans baksida.' },
       { type: 'checkbox', key: 'flipTime', label: 'Vänd tidsriktning',
         info: 'Vänder tiden i lådan, så att klippets slut ligger längst fram.' },
       // Lådans egna kanter och rummet runt den hör ihop med lådan, inte med bilden.
