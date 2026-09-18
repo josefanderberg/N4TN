@@ -43,9 +43,8 @@ det ändrar.
 | Grupp | Vad det gör |
 | --- | --- |
 | **Volym** | Sammanhanget: lådan som klippet byggs in i. Antal bildrutor och upplösning i 3D-texturen — fria tal, skriv vad du vill (2–512 bildrutor, 32–720 px). Raden under visar vad valet kostar i minne och om volymen är byggd med just de värdena. Ändring kräver **Bygg om volym**, som går att trycka på så fort ett klipp är laddat — även med oförändrade värden, för att göra om ett bygge som blev fel eller avbröts. Djupet är ett reglage upp till 5; **Utöka djupet…** öppnar ett fritt fält där du skriver vad du vill upp till 200. Längst ner lådans egna kanter: kantlinjer, kantglöd och bakgrundsfärg. |
-| **Utseende** | Helheten inne i lådan: innehåll (bild/rörelse), blandning, densitet, toning vid klippets ändar, hur mycket ytorna syns, ljusstyrka, mättnad, glasreflex och renderingskvalitet. |
-| **Ögonblick** | Bildrutorna som skarpa plan — flera tider samtidigt. En flik per riktning: djupled (tiden), sidled (X) och höjdled (Y), var och en med antal, position, uppspelning/svep och opacitet. Antalet går till 256; 0 (eller avbockat) stänger av riktningen och gråar ut resten av flikens reglage. |
-| **Tidsaura** | Mönstret mellan ögonblicken. Vågen i två underflikar — Bildrutan som spelas och Övriga ögonblick — samt rampen: opacitet mellan ögonblicken, hur många som lyser för fullt och Bågens form. |
+| **Utseende** | Helheten inne i lådan: innehåll (bild/rörelse), blandning, densitet, hur mycket ytorna syns, ljusstyrka, mättnad, glasreflex, renderingskvalitet och sist toningen vid klippets ändar. |
+| **Ögonblick** | Bildrutorna som skarpa plan — flera tider samtidigt. En flik per riktning: djupled (tiden), sidled (X) och höjdled (Y), var och en med antal, position, uppspelning/svep och opacitet. Under Djupled ligger också mönstret mellan ögonblicken: vågen i två underflikar (Bildrutan som spelas och Övriga ögonblick) samt rampen — opacitet mellan ögonblicken, hur många som lyser för fullt och Bågens form. Antalet går till 256; 0 (eller avbockat) stänger av riktningen och gråar ut resten av flikens reglage. |
 | **Special** | Vrider ögonblicken mot kameravinkeln, med håll och styrka. |
 | **Kamera** | Följ ögonblicket, fri musstyrning, pendel eller rotation, hastighet och brännvidd. |
 | **Export** | Bildformat (1:1, 4:5, 9:16, 16:9), bildfrekvens, kvalitet, antal varv och om ljudet ska med. |
@@ -65,9 +64,10 @@ det ändrar.
 syns samtidigt. **Antal** lägger ut dem med jämna mellanrum, och alla följer uppspelningen.
 **Opacitet** är nivån på ögonblicken med full styrka.
 
-### Tidsauran
+### Mönstret mellan ögonblicken
 
-Tidsauran är mönstret mellan ögonblicken — hur de tonar i och ur varandra.
+Rampen och vågen ligger under Ögonblick → Djupled och styr hur ögonblicken tonar i och ur
+varandra.
 
 **Ögonblick med full styrka** är hur många som lyser för fullt samtidigt, jämnt fördelade
 över klippet. 1 ger ett — det som spelas. 2 ger två som ligger en halv film isär och går
@@ -83,7 +83,7 @@ värden ger breda toppar som nästan möts, höga ger spetsiga toppar med tydlig
 ### Vågen
 
 Vågen låter det närmast uppspelningen synas starkast och tona ut åt båda håll, i stället för
-att hela klippet syns lika mycket hela tiden. Den ligger överst under Tidsaura, i två
+att hela klippet syns lika mycket hela tiden. Den ligger under Ögonblick → Djupled, i två
 underflikar med var sin uppsättning: **Bildrutan som spelas** gäller volymen och lådans ytor,
 **Övriga ögonblick** gäller ögonblicken i djupled och dyker upp först när Antal är över 1. De
 är skilda åt så att den ena inte trycker ner den andras toppar.
