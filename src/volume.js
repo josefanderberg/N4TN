@@ -17,9 +17,14 @@ function lineMaterial(opacity) {
   });
 }
 
-function boxOutline(geometry, opacity) {
-  const lines = new THREE.LineSegments(new THREE.EdgesGeometry(geometry), lineMaterial(opacity));
+// Lådans ram som tolv egna linjer, så att fram- och bakrektangeln kan ha
+// olika storlek när lådan dras ut till en tratt.
+function taperedCage(opacity) {
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(24 * 3), 3));
+  const lines = new THREE.LineSegments(geometry, lineMaterial(opacity));
   lines.renderOrder = 2;
+  lines.frustumCulled = false;
   return lines;
 }
 
@@ -38,12 +43,14 @@ class SliceOutlines {
   // De fyra hörnen för snittet vid `coord`. Vridna ögonblick (bara djupled)
   // blir parallellogram: snittets breddaxel klippt mot lådans väggar och
   // fram-/baksida, så konturen följer exakt det som syns av snittet.
-  cornersFor(coord, tilt) {
+  cornersFor(coord, tilt, taper) {
     if (this.axis === 0) return RECT.map((c) => [coord, c[1], c[0]]);
     if (this.axis === 1) return RECT.map((c) => [c[0], coord, c[1]]);
-    if (!tilt) return RECT.map((c) => [c[0], c[1], coord]);
-    let dLo = -tilt.dHalf;
-    let dHi = tilt.dHalf;
+    // Tratten skalar snittets rektangel kring dess mitt på det djupet.
+    const s = taper ? taper.back + (coord + 0.5) * (taper.front - taper.back) : 1;
+    if (!tilt) return RECT.map((c) => [c[0] * s, c[1] * s, coord]);
+    let dLo = -tilt.dHalf * s;
+    let dHi = tilt.dHalf * s;
     if (Math.abs(tilt.sinT) > 1e-6) {
       const a = ((coord - 0.5) * tilt.sz) / tilt.sinT;
       const b = ((coord + 0.5) * tilt.sz) / tilt.sinT;
@@ -57,16 +64,16 @@ class SliceOutlines {
       y,
       coord - (d * tilt.sinT) / tilt.sz,
     ];
-    return [at(dLo, -0.5), at(dHi, -0.5), at(dHi, 0.5), at(dLo, 0.5)];
+    return [at(dLo, -0.5 * s), at(dHi, -0.5 * s), at(dHi, 0.5 * s), at(dLo, 0.5 * s)];
   }
 
-  update(coords, tilt = null) {
+  update(coords, tilt = null, taper = null) {
     const count = coords.length;
     this.lines.visible = count > 0 && count <= MAX_OUTLINES;
     if (!this.lines.visible) return;
     let offset = 0;
     for (const coord of coords) {
-      const pts = this.cornersFor(coord, tilt);
+      const pts = this.cornersFor(coord, tilt, taper);
       for (let e = 0; e < 4; e++) {
         this.array.set(pts[e], offset);
         this.array.set(pts[(e + 1) % 4], offset + 3);
@@ -116,6 +123,12 @@ export class VolumeBox {
       uLumWeight: { value: 0.35 },
       uShellFront: { value: 0.75 },
       uShellBack: { value: 0.6 },
+      uShellLeft: { value: 0.75 },
+      uShellRight: { value: 0.75 },
+      uShellTop: { value: 0.75 },
+      uShellBottom: { value: 0.75 },
+      uSizeFront: { value: 1 },
+      uSizeBack: { value: 1 },
       uBrightness: { value: 1.1 },
       uSaturation: { value: 0.9 },
       uGlass: { value: 1 },
@@ -156,7 +169,8 @@ export class VolumeBox {
     const box = new THREE.BoxGeometry(1, 1, 1);
     this.mesh = new THREE.Mesh(box, this.material);
     this.mesh.frustumCulled = false;
-    this.edges = boxOutline(box, 0.3);
+    this.edges = taperedCage(0.3);
+    this._updateCage(1, 1);
     this.slices = [new SliceOutlines(0), new SliceOutlines(1), new SliceOutlines(2)];
     this.group.add(this.mesh, this.edges, ...this.slices.map((s) => s.lines));
 
@@ -213,6 +227,33 @@ export class VolumeBox {
     this.uniforms.uScale.value.copy(s);
   }
 
+  // Ramens tolv linjer: framrektangel, bakrektangel och fyra förbindare.
+  _updateCage(front, back) {
+    if (this._cageFront === front && this._cageBack === back) return;
+    this._cageFront = front;
+    this._cageBack = back;
+    const pos = this.edges.geometry.attributes.position;
+    let o = 0;
+    const put = (corner, z, scale) => {
+      pos.array[o++] = corner[0] * scale;
+      pos.array[o++] = corner[1] * scale;
+      pos.array[o++] = z;
+    };
+    for (let i = 0; i < 4; i++) {
+      put(RECT[i], 0.5, front);
+      put(RECT[(i + 1) % 4], 0.5, front);
+    }
+    for (let i = 0; i < 4; i++) {
+      put(RECT[i], -0.5, back);
+      put(RECT[(i + 1) % 4], -0.5, back);
+    }
+    for (let i = 0; i < 4; i++) {
+      put(RECT[i], 0.5, front);
+      put(RECT[i], -0.5, back);
+    }
+    pos.needsUpdate = true;
+  }
+
   // Anropas varje bildruta innan rendering.
   update(camera, p) {
     const u = this.uniforms;
@@ -237,6 +278,18 @@ export class VolumeBox {
     u.uLumWeight.value = p.lumWeight;
     u.uShellFront.value = p.shellFront;
     u.uShellBack.value = p.shellBack;
+    u.uShellLeft.value = p.shellLeft;
+    u.uShellRight.value = p.shellRight;
+    u.uShellTop.value = p.shellTop;
+    u.uShellBottom.value = p.shellBottom;
+    // Tratten: bara förhållandet mellan fram och bak syns, så den större änden
+    // normeras till lådans fulla storlek.
+    const taperMax = Math.max(p.sizeFront, p.sizeBack);
+    const taperFront = p.sizeFront / taperMax;
+    const taperBack = p.sizeBack / taperMax;
+    u.uSizeFront.value = taperFront;
+    u.uSizeBack.value = taperBack;
+    this._updateCage(taperFront, taperBack);
     u.uBrightness.value = p.brightness;
     u.uSaturation.value = p.saturation;
     u.uGlass.value = p.glass;
@@ -274,6 +327,7 @@ export class VolumeBox {
     this.slices[2].update(
       planeCoords((0.5 - p.timePosEffective) * dir, p.timeOn ? p.timeCount : 0),
       tiltInfo,
+      taperFront === taperBack && taperFront === 1 ? null : { front: taperFront, back: taperBack },
     );
 
     this.edges.visible = p.lines > 0;

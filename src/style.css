@@ -542,6 +542,23 @@ select {
   font-size: 12px;
 }
 
+/* Vikbar underrubrik: ett tryck fäller in och ut raderna under den. */
+.fold {
+  appearance: none;
+  border: none;
+  background: transparent;
+  padding: 2px 0;
+  text-align: left;
+  color: var(--text-dim);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.fold:hover {
+  color: var(--text);
+}
+
 /* Reglage som hör till fliklisten ovanför hänger ihop med den visuellt,
    så att man ser var flikens innehåll slutar och resten av avsnittet tar vid. */
 .row-pane {

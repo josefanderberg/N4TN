@@ -42,8 +42,8 @@ det ändrar.
 
 | Grupp | Vad det gör |
 | --- | --- |
-| **Volym** | Sammanhanget: lådan som klippet byggs in i. Antal bildrutor och upplösning i 3D-texturen — fria tal, skriv vad du vill (2–512 bildrutor, 32–720 px). Raden under visar vad valet kostar i minne och om volymen är byggd med just de värdena. Ändring kräver **Bygg om volym**, som går att trycka på så fort ett klipp är laddat — även med oförändrade värden, för att göra om ett bygge som blev fel eller avbröts. Djupet är ett reglage upp till 5; **Utöka djupet…** öppnar ett fritt fält där du skriver vad du vill upp till 200. Längst ner lådans egna kanter: kantlinjer, kantglöd och bakgrundsfärg. |
-| **Utseende** | Helheten inne i lådan: innehåll (bild/rörelse), blandning, densitet, hur mycket ytorna syns, ljusstyrka, mättnad, glasreflex, renderingskvalitet och sist toningen vid klippets ändar. |
+| **Volym** | Sammanhanget: lådan som klippet byggs in i. Antal bildrutor och upplösning i 3D-texturen — fria tal, skriv vad du vill (2–512 bildrutor, 32–720 px). Raden under visar vad valet kostar i minne och om volymen är byggd med just de värdena. Ändring kräver **Bygg om volym**, som går att trycka på så fort ett klipp är laddat — även med oförändrade värden, för att göra om ett bygge som blev fel eller avbröts. Djupet är ett reglage upp till 5; **Utöka djupet…** öppnar ett fritt fält där du skriver vad du vill upp till 200. **Storlek fram/bak** gör lådan till en tratt: olika storlek på ändarna får innehållet att växa eller krympa genom flödet. Längst ner lådans egna kanter — kantlinjer och kantglöd — samt den vikbara gruppen **Ytor och glas** med glasreflexen och en yta per sida (fram, bak, vänster, höger, tak, botten) och bakgrundsfärgen. |
+| **Utseende** | Helheten inne i lådan: innehåll (bild/rörelse), blandning, densitet, ljusstyrka, mättnad, renderingskvalitet och sist toningen vid klippets ändar. |
 | **Ögonblick** | Bildrutorna som skarpa plan — flera tider samtidigt. En flik per riktning: djupled (tiden), sidled (X) och höjdled (Y), var och en med antal, position, uppspelning/svep och opacitet. Under Djupled ligger också mönstret mellan ögonblicken: vågen i två underflikar (Bildrutan som spelas och Övriga ögonblick) samt rampen — opacitet mellan ögonblicken, hur många som lyser för fullt och Bågens form. Antalet går till 256; 0 (eller avbockat) stänger av riktningen och gråar ut resten av flikens reglage. |
 | **Special** | Vrider ögonblicken mot kameravinkeln, med håll och styrka. |
 | **Kamera** | Följ ögonblicket, fri musstyrning, pendel eller rotation, hastighet och brännvidd. |
@@ -84,9 +84,11 @@ värden ger breda toppar som nästan möts, höga ger spetsiga toppar med tydlig
 
 Vågen låter det närmast uppspelningen synas starkast och tona ut åt båda håll, i stället för
 att hela klippet syns lika mycket hela tiden. Den ligger under Ögonblick → Djupled, i två
-underflikar med var sin uppsättning: **Bildrutan som spelas** gäller volymen och lådans ytor,
-**Övriga ögonblick** gäller ögonblicken i djupled och dyker upp först när Antal är över 1. De
-är skilda åt så att den ena inte trycker ner den andras toppar.
+underflikar med var sin uppsättning: **Bildrutan som spelas** gäller volymen, **Övriga
+ögonblick** gäller ögonblicken i djupled och dyker upp först när Antal är över 1. De är
+skilda åt så att den ena inte trycker ner den andras toppar. Lådans ytor lyser jämnt och
+styrs per sida under Volym → Ytor och glas, så att en yta är hela sidans klarhet — inte ett
+band som följer uppspelningen.
 
 **Vågens längd** är hur stor del av klippet som fortfarande syns tydligt: en kort våg ger ett
 smalt fönster som vandrar genom lådan, en lång ger en mjuk uttoning.
