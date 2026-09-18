@@ -38,8 +38,16 @@ uniform int uBlend;
 uniform float uDensity;
 uniform float uAutoGain;
 uniform float uLumWeight;
+// Varje sida av lådan har sin egen ytstyrka.
 uniform float uShellFront;
 uniform float uShellBack;
+uniform float uShellLeft;
+uniform float uShellRight;
+uniform float uShellTop;
+uniform float uShellBottom;
+// Tratten: fram- och baksidans storlek (normerade så att den större är 1).
+uniform float uSizeFront;
+uniform float uSizeBack;
 uniform float uBrightness;
 uniform float uSaturation;
 uniform float uGlass;
@@ -77,8 +85,20 @@ float luma(vec3 c) { return dot(c, vec3(0.2126, 0.7152, 0.0722)); }
 // Tid (0..1) för en punkt; framsidan (z = +0.5) är start som standard.
 float timeAt(vec3 p) { return 0.5 - uTimeDir * p.z; }
 
+// Bildens skala på ett givet djup. Olika storlek fram och bak gör lådan till
+// en tratt: bilden ritas mindre där skalan är låg, och utanför den skalade
+// ramen är lådan tom.
+float taperAt(float z) { return mix(uSizeBack, uSizeFront, z + 0.5); }
+
+float insideTaper(vec3 p) {
+  // Marginalen håller lådans egna väggar (|x| = 0.5 exakt) innanför masken.
+  float half_ = 0.5 * taperAt(p.z) + 1e-4;
+  return step(abs(p.x), half_) * step(abs(p.y), half_);
+}
+
 vec3 volumeAt(vec3 p, float offset) {
-  return texture(uVolume, vec3(p.x + 0.5, 0.5 - p.y, timeAt(p) + offset)).rgb;
+  float s = taperAt(p.z);
+  return texture(uVolume, vec3(p.x / s + 0.5, 0.5 - p.y / s, timeAt(p) + offset)).rgb;
 }
 
 // I läget Rörelse visas skillnaden mot nästa bildruta, så stillastående bakgrund
@@ -161,6 +181,14 @@ void over(inout vec3 col, inout float acc, vec3 c, float a) {
 // Ytorna syns starkt i sned vinkel och nästan inte alls rakt framifrån, som glas.
 float grazing(float fres) { return 0.12 + 0.88 * pow(fres, 1.5); }
 
+// Ytstyrkan för lådans fasta sidor: fram/bak är kortsidorna av tiden,
+// vänster/höger och tak/botten är de utsmetade bildkanterna.
+float shellFor(vec3 n) {
+  if (abs(n.z) > 0.5) return n.z > 0.0 ? uShellFront : uShellBack;
+  if (abs(n.x) > 0.5) return n.x > 0.0 ? uShellRight : uShellLeft;
+  return n.y > 0.0 ? uShellTop : uShellBottom;
+}
+
 // Tidssnitten ligger på uTimePos + k / uTimeCount. uTimeFull toppar med full
 // styrka ligger jämnt fördelade över stacken: en vid uppspelningen (k = 0) och
 // sedan var n:te snitt åt båda håll. Topparna har uTimeOpacity, dalarna
@@ -207,10 +235,11 @@ void main() {
   if (outside) {
     float f = fresIn * fresIn * fresIn * fresIn;
     vec3 tint = vec3(0.78, 0.9, 1.0) * 0.35 + spectrum(fresIn * 1.3 + dot(pIn, vec3(0.6, 0.9, 0.4))) * 0.12;
-    glass += tint * f * uGlass;
-    glass += vec3(0.85, 0.95, 1.0) * exp(-edgeDist(pIn, nIn) * 28.0) * uEdgeGlow * 0.5;
+    glass += (tint * f * uGlass
+      + vec3(0.85, 0.95, 1.0) * exp(-edgeDist(pIn, nIn) * 28.0) * uEdgeGlow * 0.5)
+      * insideTaper(pIn);
     over(col, acc, grade(sampleVol(pIn)),
-      uShellFront * grazing(fresIn) * filledAt(pIn) * waveAt(pIn) * edgeAt(pIn));
+      shellFor(nIn) * grazing(fresIn) * insideTaper(pIn) * filledAt(pIn) * edgeAt(pIn));
   }
 
   // Djupsnitten kan vara vridna kring höjdaxeln. Planen definieras av sin
@@ -253,9 +282,11 @@ void main() {
       float sliceIndex = (dot(tiltN, p * uScale) - cZero) / cStep;
       float sliceTime = uTimePos - uTimeDir * sliceIndex / max(uTimeCount, 1.0);
       // Snittet behåller sin fulla bredd vid vridning; lådan är i stället
-      // avsmalnad så att snittet precis når från vägg till vägg.
+      // avsmalnad så att snittet precis når från vägg till vägg. Tratten
+      // skalar bildrutan kring sin mitt och klipper utanför ramen.
       vec2 uv = vec2(dot(p * uScale, tiltR) / uSliceW + 0.5, p.y + 0.5);
-      if (uv.x >= 0.0 && uv.x <= 1.0) {
+      uv = (uv - 0.5) / taperAt(p.z) + 0.5;
+      if (uv.x >= 0.0 && uv.x <= 1.0 && uv.y >= 0.0 && uv.y <= 1.0) {
         vec3 c = (uHasVideo > 0.5 && abs(sliceIndex) < 0.5)
           ? texture(uVideo, uv).rgb
           : texture(uVolume, vec3(uv.x, 1.0 - uv.y, sliceTime)).rgb;
@@ -269,7 +300,7 @@ void main() {
       ts = nextSlice(ts, tEnd, aX, bX);
       if (ts < 0.0) break;
       vec3 p = vOrigin + rd * ts;
-      over(col, acc, grade(sampleVol(p)), uXOpacity * filledAt(p) * waveAt(p) * edgeAt(p));
+      over(col, acc, grade(sampleVol(p)), uXOpacity * insideTaper(p) * filledAt(p) * waveAt(p) * edgeAt(p));
       ts += 1e-6;
     }
     ts = tPrev;
@@ -277,7 +308,7 @@ void main() {
       ts = nextSlice(ts, tEnd, aY, bY);
       if (ts < 0.0) break;
       vec3 p = vOrigin + rd * ts;
-      over(col, acc, grade(sampleVol(p)), uYOpacity * filledAt(p) * waveAt(p) * edgeAt(p));
+      over(col, acc, grade(sampleVol(p)), uYOpacity * insideTaper(p) * filledAt(p) * waveAt(p) * edgeAt(p));
       ts += 1e-6;
     }
 
@@ -285,7 +316,8 @@ void main() {
       vec3 p = vOrigin + rd * t;
       if (timeAt(p) <= uFilled) {
         vec3 s = grade(sampleVol(p));
-        float k = mix(1.0, 0.25 + 1.5 * luma(s), uLumWeight) * waveAt(p) * edgeAt(p);
+        float k = mix(1.0, 0.25 + 1.5 * luma(s), uLumWeight)
+          * insideTaper(p) * waveAt(p) * edgeAt(p);
         if (uBlend == 0) {
           over(col, acc, s, 1.0 - exp(-uDensity * k * dt * worldPerUnit));
         } else if (uBlend == 1) {
@@ -308,8 +340,9 @@ void main() {
   if (acc < 0.985) {
     float fresOut = 1.0 - abs(dot(nOut, rdW));
     over(col, acc, grade(sampleVol(pOut)),
-      uShellBack * grazing(fresOut) * filledAt(pOut) * waveAt(pOut) * edgeAt(pOut));
-    glass += vec3(0.85, 0.95, 1.0) * exp(-edgeDist(pOut, nOut) * 28.0) * uEdgeGlow * 0.25 * (1.0 - acc);
+      shellFor(nOut) * grazing(fresOut) * insideTaper(pOut) * filledAt(pOut) * edgeAt(pOut));
+    glass += vec3(0.85, 0.95, 1.0) * exp(-edgeDist(pOut, nOut) * 28.0) * uEdgeGlow * 0.25
+      * insideTaper(pOut) * (1.0 - acc);
   }
 
   // Adderande läge rullar av mjukt i toppen, annars bränns ljusa klipp ut till vitt.

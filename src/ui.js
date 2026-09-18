@@ -156,6 +156,21 @@ export function buildPanel(root, sections, params, defaults, onChange) {
     return row;
   }
 
+  // En liten vikbar rubrik: raderna under (med visible knutet till samma
+  // tillstånd) fälls in och ut med ett tryck.
+  function foldRow(item) {
+    const button = el('button', { type: 'button', class: 'fold' });
+    button.addEventListener('click', () => {
+      item.set(!item.get());
+      refresh();
+    });
+    const row = el('div', { class: 'row row-fold' }, button);
+    bindings.push({ item, row, sync: () => {
+      button.textContent = `${item.get() ? '▾' : '▸'} ${item.label}`;
+    } });
+    return row;
+  }
+
   function noteRow(item) {
     const row = el('p', { class: 'row row-note', id: item.id });
     row.textContent = item.text ?? '';
@@ -173,6 +188,7 @@ export function buildPanel(root, sections, params, defaults, onChange) {
     note: noteRow,
     custom: customRow,
     tabs: tabsRow,
+    fold: foldRow,
   };
 
   // Ett litet i intill etiketten fäller ut en förklaring under raden.
