@@ -164,6 +164,7 @@ export class VolumeBox {
       uContent: { value: 0 },
       uFrameStep: { value: 1 / 144 },
       uMotionGain: { value: 8 },
+      uMotionMist: { value: 0 },
       uBlend: { value: 0 },
       uDensity: { value: 0.7 },
       uAutoGain: { value: 1 },
@@ -183,6 +184,7 @@ export class VolumeBox {
       uTimeCount: { value: 1 },
       uTimeLoop: { value: 0 },
       uTimeAnchor: { value: 0 },
+      uSeamBlend: { value: 0.08 },
       uTimePos: { value: 0 },
       uTimeOpacity: { value: 0.92 },
       uTimeRestOpacity: { value: 0.55 },
@@ -312,6 +314,7 @@ export class VolumeBox {
     u.uTimeDir.value = p.flipTime ? -1 : 1;
     u.uContent.value = p.content;
     u.uMotionGain.value = p.motionGain;
+    u.uMotionMist.value = p.motionMist;
     u.uBlend.value = p.blend;
     u.uDensity.value = p.density;
     u.uLumWeight.value = p.lumWeight;
@@ -334,6 +337,7 @@ export class VolumeBox {
     u.uTimeCount.value = p.timeOn ? p.timeCount : 0;
     u.uTimeLoop.value = p.timeLoop ? 1 : 0;
     u.uTimeAnchor.value = p.timeAnchor;
+    u.uSeamBlend.value = p.timeSeam;
     u.uTimePos.value = p.timePosEffective;
     u.uTimeOpacity.value = p.timeOpacity;
     u.uTimeRestOpacity.value = p.timeRestOpacity;
