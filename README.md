@@ -132,6 +132,13 @@ genom lådan. Lådan behåller sin fulla bredd: varje ögonblick sträcker sig f
 när kameran panorerar upp eller ner, och de två går att kombinera. **Motsatt håll** vänder
 vridningen, och **Hur mycket** skalar den — kring halv styrka syns lutningen tydligast.
 
+### Solfjädern
+
+Under Ögonblick → Sidled kan snitten vinklas mot mitten: **Vinkla mot mitten (solfjäder)**
+gör dem till plan genom lådans mittaxel, jämnt spridda i vinkel, i stället för att gå rakt
+igenom — som bladen i en hologramfläkt. **Position** vrider solfjädern och **Svep
+automatiskt** snurrar den runt axeln.
+
 ### Följ tidssnittet
 
 Med **Följ tidssnittet** åker kameran med bildrutan som spelas upp genom lådan, på konstant

@@ -41,8 +41,20 @@ class SliceOutlines {
   // som följer väggarna. Vridna ögonblick (bara djupled) blir parallellogram:
   // snittets breddaxel klippt mot lådans väggar och fram-/baksida, så konturen
   // följer exakt det som syns av snittet.
-  cornersFor(coord, tilt, taper) {
+  cornersFor(coord, tilt, taper, fan) {
     const w = (z) => (taper ? taper.back + (z + 0.5) * (taper.front - taper.back) : 1);
+    if (this.axis === 0 && fan) {
+      // Bladet är ett plan genom mittaxeln vid vinkeln coord, klippt mot
+      // väggarna och fram-/baksidan.
+      const sphi = Math.sin(coord);
+      const cphi = Math.cos(coord);
+      const U = Math.min(
+        (0.5 * fan.sx) / Math.max(Math.abs(sphi), 1e-4),
+        (0.5 * fan.sz) / Math.max(Math.abs(cphi), 1e-4),
+      );
+      const at = (u, y) => [(u * sphi) / fan.sx, y, (u * cphi) / fan.sz];
+      return [at(-U, -0.5), at(U, -0.5), at(U, 0.5), at(-U, 0.5)];
+    }
     if (this.axis === 0) return RECT.map((c) => [coord * w(c[0]), c[1] * w(c[0]), c[0]]);
     if (this.axis === 1) return RECT.map((c) => [c[0] * w(c[1]), coord * w(c[1]), c[1]]);
     // Tratten skalar snittets rektangel kring dess mitt på det djupet.
@@ -82,13 +94,13 @@ class SliceOutlines {
     return [at(dLo, eLo), at(dHi, eLo), at(dHi, eHi), at(dLo, eHi)];
   }
 
-  update(coords, tilt = null, taper = null) {
+  update(coords, tilt = null, taper = null, fan = null) {
     const count = coords.length;
     this.lines.visible = count > 0 && count <= MAX_OUTLINES;
     if (!this.lines.visible) return;
     let offset = 0;
     for (const coord of coords) {
-      const pts = this.cornersFor(coord, tilt, taper);
+      const pts = this.cornersFor(coord, tilt, taper, fan);
       for (let e = 0; e < 4; e++) {
         this.array.set(pts[e], offset);
         this.array.set(pts[(e + 1) % 4], offset + 3);
@@ -181,6 +193,7 @@ export class VolumeBox {
       uSliceW: { value: 1 },
       uSliceH: { value: 1 },
       uXCount: { value: 1 },
+      uXFan: { value: 0 },
       uXPos: { value: 0.5 },
       uXOpacity: { value: 0.3 },
       uYCount: { value: 0 },
@@ -325,6 +338,7 @@ export class VolumeBox {
     u.uTilt.value = p.tilt;
     u.uTiltV.value = p.tiltV;
     u.uXCount.value = p.xCount;
+    u.uXFan.value = p.xFan ? 1 : 0;
     u.uXPos.value = p.xPosEffective;
     u.uYCount.value = p.yCount;
     u.uXOpacity.value = p.xOpacity;
@@ -340,7 +354,17 @@ export class VolumeBox {
     const taper = taperFront === taperBack && taperFront === 1
       ? null
       : { front: taperFront, back: taperBack };
-    this.slices[0].update(planeCoords(p.xPosEffective - 0.5, p.xCount), null, taper);
+    if (p.xFan && p.xCount > 0) {
+      // Solfjäderns bladvinklar: hela varvet är ett halvt varv, eftersom
+      // bladen går genom axeln och täcker båda sidor.
+      const angles = [];
+      for (let k = 0; k < Math.min(p.xCount, 16); k++) {
+        angles.push(p.xPosEffective * Math.PI + (k * Math.PI) / p.xCount);
+      }
+      this.slices[0].update(angles, null, null, { sx: s.x, sz: s.z });
+    } else {
+      this.slices[0].update(planeCoords(p.xPosEffective - 0.5, p.xCount), null, taper);
+    }
     this.slices[1].update(planeCoords(p.yPosEffective - 0.5, p.yCount), null, taper);
     // Så mycket av snittets halva bredd som ryms i den avsmalnade lådan.
     // Snittets båda vinklar till konturerna: vridning i sidled och lutning i
