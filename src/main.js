@@ -913,11 +913,13 @@ function renderPresets(row) {
     codeInput.value = code;
     codeInput.select();
     const link = `${location.origin}${location.pathname}#k=${code}`;
+    // Koden skrivs inte ut här: den står redan i fältet, och som obruten sträng
+    // skulle den tvinga panelen bredare än skärmen.
     try {
       await navigator.clipboard.writeText(link);
-      status.textContent = `Kod: ${code} — länken är kopierad.`;
+      status.textContent = 'Koden står i fältet — länken är kopierad.';
     } catch {
-      status.textContent = `Kod: ${code} — kopiera den härifrån.`;
+      status.textContent = 'Koden står i fältet — kopiera den därifrån.';
     }
   });
 
