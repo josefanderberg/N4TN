@@ -66,8 +66,8 @@ tillbaka efter en ändring (dubbelklick på reglaget återställer det).
 syns samtidigt. **Antal** lägger ut dem med jämna mellanrum, och alla följer uppspelningen.
 Opaciteten ställs i två reglage: ett för **bildrutan som spelas** och ett för de övriga
 **fulla ögonblicken**, så att det följda ögonblicket kan lysa för sig. **Dynamisk opacitet**
-låter de fulla ögonblicken stiga i styrka ju närmare den spelade bildrutan de ligger, i
-stället för att alla vara lika starka.
+är ett trappsteg: varje fullt ögonblick tappar så mycket i styrka för varje steg bort från
+den spelade bildrutan (0,1 ger 0,9 → 0,8 → 0,7 …), så att det längst bort visas svagast.
 
 ### Mönstret mellan ögonblicken
 
