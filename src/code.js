@@ -2,7 +2,7 @@
 // och inte har någon server som kan lagra dem. Bara värden som skiljer sig från
 // referensen nedan skrivs med, vilket håller koden kort.
 
-export const CODE_VERSION = 7;
+export const CODE_VERSION = 8;
 
 // Fält som betydde något annat i en äldre kodversion. Nyckeln är versionen,
 // värdet är fältets dåvarande beskrivning.
@@ -10,6 +10,8 @@ export const CODE_VERSION = 7;
 const GROV_VAG = { wave: ['wave', 'f1', 0, 4, 0.01] };
 // Djupet gick till 50 innan det fria läget släppte det till 200.
 const DJUP_50 = { depth: ['depth', 'f2', 0.2, 50, 0.05] };
+// Vridningen gick till 1,5 innan den dubblades.
+const SMAL_VRIDNING = { specialAmount: ['specialAmount', 'f1', 0, 1.5, 0.01] };
 
 const SMA_ANTAL = {
   timeCount: ['timeCount', 'i1'],
@@ -29,7 +31,8 @@ const LEGACY = {
   5: { ...GROV_VAG, ...DJUP_50 },
   // 6: uttoningen mellan djupsnitten var relativ (timeFade) och räknas om till
   // timeRestOpacity vid inläsning; djupet gick fortfarande bara till 50.
-  6: { ...DJUP_50 },
+  6: { ...DJUP_50, ...SMAL_VRIDNING },
+  7: { ...SMAL_VRIDNING },
 };
 
 // Referensvärden som koden räknar skillnad mot. De är FRYSTA: ändras appens
@@ -104,7 +107,7 @@ const FIELDS = [
   ['sliceWaveWidth', 'f1', 0.02, 1, 0.01],
   ['special', 'b'],
   ['specialReverse', 'b'],
-  ['specialAmount', 'f1', 0, 1.5, 0.01],
+  ['specialAmount', 'f1', 0, 3, 0.01],
   ['timeRestOpacity', 'f1', 0, 1, 0.01],
 ];
 

@@ -1146,7 +1146,7 @@ const sections = [
       { type: 'checkbox', key: 'specialReverse', label: 'Motsatt håll',
         disabled: (p) => !p.special,
         info: 'Vrider åt andra hållet i förhållande till kameran.' },
-      { type: 'range', key: 'specialAmount', label: 'Hur mycket', min: 0, max: 1.5, step: 0.01,
+      { type: 'range', key: 'specialAmount', label: 'Hur mycket', min: 0, max: 3, step: 0.01,
         disabled: (p) => !p.special,
         info: 'Hur långt mot kameravinkeln ögonblicken vrids.' },
     ],
