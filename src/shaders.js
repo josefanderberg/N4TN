@@ -58,6 +58,18 @@ uniform float uExpCeil;
 uniform float uSaturation;
 uniform float uGlass;
 uniform float uEdgeGlow;
+// Bakgrunden: tidsmedianen av klippet. Med borttagningen på jämförs varje
+// punkt mot den, och det som står stilla släcks så att motivet svävar fritt.
+uniform sampler2D uBgTex;
+uniform float uBgRemove;
+uniform float uBgThreshold;
+// Färg efter tid: varje ögonblick tonas efter var i klippet det hör hemma.
+uniform float uTimeTint;
+// AI-djupet: skattad närhet per bildruta (1 = nära kameran). Reliefen buktar
+// ögonblicken mot betraktaren där det är nära.
+uniform sampler3D uDepthVol;
+uniform float uDepthOn;
+uniform float uRelief;
 
 // Varje riktning har ett snitt vid sin position plus fler med jämnt mellanrum 1 / antal.
 uniform float uTimeCount;
@@ -152,15 +164,40 @@ vec3 volumeAt(vec3 p, float offset) {
   return volTexLoop(vec2(u.x + 0.5, 0.5 - u.y), timeAt(p) + offset);
 }
 
+// Andelen förgrund: hur mycket en punkt skiljer sig från bakgrundsbilden,
+// som är tidsmedianen av hela klippet. Det som står stilla hamnar nära 0.
+float fgMask(vec3 c, vec2 xy) {
+  float d = distance(c, texture(uBgTex, xy).rgb);
+  return smoothstep(uBgThreshold * 0.5, uBgThreshold, d);
+}
+
+// Senaste förgrundsandelen från sampleVol, så att även täckningen kan dämpas
+// där bakgrunden togs bort (annars blir det svarta partiet ett mörkt dis).
+float gFg = 1.0;
+
 // I läget Rörelse visas skillnaden mot nästa bildruta, så stillastående bakgrund
 // blir svart och bara det som rör sig syns inne i lådan.
 vec3 sampleVol(vec3 p) {
-  vec3 c = volumeAt(p, 0.0);
+  gFg = 1.0;
+  vec3 u = unwarp(p);
+  vec2 xy = vec2(u.x + 0.5, 0.5 - u.y);
+  float t = timeAt(p);
+  vec3 raw = volTexLoop(xy, t);
+  vec3 c = raw;
+  if (uBgRemove > 0.5 && uContent != 1) {
+    gFg = fgMask(raw, xy);
+    c *= gFg;
+  }
   if (uContent == 0) return c;
-  vec3 motion = abs(volumeAt(p, uFrameStep) - c) * uMotionGain;
+  // Rörelsen räknas på råbilderna: bakgrunden tar ut sig själv i skillnaden.
+  vec3 motion = abs(volTexLoop(xy, t + uFrameStep) - raw) * uMotionGain;
   // 2 = bild och rörelse ihop: bilden i botten, rörelsebanorna lyser ovanpå.
   return uContent == 1 ? motion : c + motion;
 }
+
+// I rena bildläget ska borttagen bakgrund även släppa igenom det bakom;
+// i rörelselägena bär rörelsen täckningen och lämnas orörd.
+float fgAlpha() { return uContent == 0 ? gFg : 1.0; }
 
 float filledAt(vec3 p) { return step(timeAt(p), uFilled); }
 
@@ -266,6 +303,21 @@ float edgeDist(vec3 p, vec3 axisMask) {
 
 vec3 spectrum(float x) {
   return 0.5 + 0.5 * cos(6.28318 * (x + vec3(0.0, 0.33, 0.67)));
+}
+
+// Färg efter tid: ögonblickets plats i klippet blir en färg ur spektrat,
+// med bevarad ljushet så att svart förblir svart. I loopläget går skalan
+// hela varvet runt, så att skarven inte byter färg; annars stannar den vid
+// blått i stället för att sluta där den började.
+vec3 tintByTime(vec3 c, float t) {
+  if (uTimeTint <= 0.001) return c;
+  vec3 hue = spectrum(uTimeLoop > 0.5 ? t : t * 0.72);
+  return mix(c, luma(c) * 1.9 * hue, uTimeTint);
+}
+
+// Volymens färdiga färg i en punkt: innehåll, exponering och tidsfärg ihop.
+vec3 shadeVol(vec3 p) {
+  return tintByTime(grade(sampleVol(p)), timeAt(p));
 }
 
 float hash12(vec2 p) {
@@ -387,8 +439,9 @@ void main() {
     vec3 tint = vec3(0.78, 0.9, 1.0) * 0.35 + spectrum(fresIn * 1.3 + dot(pIn, vec3(0.6, 0.9, 0.4))) * 0.12;
     glass += tint * f * uGlass;
     glass += vec3(0.85, 0.95, 1.0) * exp(-edgeDist(pIn, maskIn) * 28.0) * uEdgeGlow * 0.5;
-    over(col, acc, grade(sampleVol(pIn)),
-      shellFor(maskIn, pIn) * grazing(fresIn) * filledAt(pIn) * edgeAt(pIn));
+    vec3 sIn = shadeVol(pIn);
+    over(col, acc, sIn,
+      shellFor(maskIn, pIn) * grazing(fresIn) * filledAt(pIn) * edgeAt(pIn) * fgAlpha());
   }
 
   // Djupsnitten kan vridas kring höjdaxeln (uTilt) och luta fram/bak kring
@@ -440,10 +493,23 @@ void main() {
       vec2 uv = vec2(dot(p * uScale, tiltR) / uSliceW + 0.5,
                      dot(p * uScale, tiltU) / uSliceH + 0.5);
       uv = clamp((uv - 0.5) / taperAt(p.z) + 0.5, 0.0, 1.0);
+      // AI-reliefen: där djupet säger nära buktar snittet mot betraktaren.
+      // Parallax i två steg: läs djupet, flytta blickpunkten, läs igen.
+      if (uDepthOn > 0.5 && uRelief > 0.001) {
+        vec3 vW = -rd * uScale;
+        float vn = max(abs(dot(vW, tiltN)), 0.2 * length(vW));
+        vec2 vt = vec2(dot(vW, tiltR) / uSliceW, dot(vW, tiltU) / uSliceH) / vn;
+        float h = (texture(uDepthVol, vec3(uv.x, 1.0 - uv.y, sliceTime)).r - 0.5) * uRelief;
+        vec2 uv2 = clamp(uv + vt * h, 0.0, 1.0);
+        h = (texture(uDepthVol, vec3(uv2.x, 1.0 - uv2.y, sliceTime)).r - 0.5) * uRelief;
+        uv = clamp(uv + vt * h, 0.0, 1.0);
+      }
       vec3 c = (uHasVideo > 0.5 && abs(sliceIndex) < 0.5)
         ? texture(uVideo, uv).rgb
         : volTexLoop(vec2(uv.x, 1.0 - uv.y), sliceTime);
-      over(col, acc, grade(c), sliceAlpha(sliceIndex)
+      // Utan bakgrund blir snitten urklipp: motivet står kvar, resten släpper igenom.
+      float fg = uBgRemove > 0.5 ? fgMask(c, vec2(uv.x, 1.0 - uv.y)) : 1.0;
+      over(col, acc, tintByTime(grade(c), sliceTime), fg * sliceAlpha(sliceIndex)
         * sliceWaveAt(sliceTime) * step(sliceTime, uFilled) * edgeAtTime(sliceTime));
       ts += 1e-6;
     }
@@ -455,7 +521,8 @@ void main() {
         : nextWallSlice(ts, tEnd, vOrigin.x, rd.x, vOrigin.z, rd.z, xA, xB);
       if (ts < 0.0) break;
       vec3 p = vOrigin + rd * ts;
-      over(col, acc, grade(sampleVol(p)), uXOpacity * filledAt(p) * waveAt(p) * edgeAt(p));
+      vec3 sx = shadeVol(p);
+      over(col, acc, sx, uXOpacity * filledAt(p) * waveAt(p) * edgeAt(p) * fgAlpha());
       ts += 1e-6;
     }
     ts = tPrev;
@@ -463,7 +530,8 @@ void main() {
       ts = nextWallSlice(ts, tEnd, vOrigin.y, rd.y, vOrigin.z, rd.z, yA, yB);
       if (ts < 0.0) break;
       vec3 p = vOrigin + rd * ts;
-      over(col, acc, grade(sampleVol(p)), uYOpacity * filledAt(p) * waveAt(p) * edgeAt(p));
+      vec3 sy = shadeVol(p);
+      over(col, acc, sy, uYOpacity * filledAt(p) * waveAt(p) * edgeAt(p) * fgAlpha());
       ts += 1e-6;
     }
 
@@ -474,11 +542,12 @@ void main() {
         // följer rörelsen genom lådan, ovanpå vilket innehållsläge som helst.
         if (uMotionMist > 0.001) {
           vec3 mv = abs(volumeAt(p, uFrameStep) - volumeAt(p, 0.0));
-          mist += (1.0 - acc) * grade(mv) * uMotionMist * 3.0
+          mist += (1.0 - acc) * tintByTime(grade(mv), timeAt(p)) * uMotionMist * 3.0
             * waveAt(p) * edgeAt(p) * dt * worldPerUnit;
         }
-        vec3 s = grade(sampleVol(p));
-        float k = mix(1.0, 0.25 + 1.5 * luma(s), uLumWeight) * waveAt(p) * edgeAt(p);
+        vec3 s = shadeVol(p);
+        float k = mix(1.0, 0.25 + 1.5 * luma(s), uLumWeight)
+          * waveAt(p) * edgeAt(p) * fgAlpha();
         if (uBlend == 0) {
           over(col, acc, s, 1.0 - exp(-uDensity * k * dt * worldPerUnit));
         } else if (uBlend == 1) {
@@ -500,8 +569,9 @@ void main() {
   // Baksidan av lådan.
   if (acc < 0.985) {
     float fresOut = 1.0 - abs(dot(nOut, rdW));
-    over(col, acc, grade(sampleVol(pOut)),
-      shellFor(maskOut, pOut) * grazing(fresOut) * filledAt(pOut) * edgeAt(pOut));
+    vec3 sOut = shadeVol(pOut);
+    over(col, acc, sOut,
+      shellFor(maskOut, pOut) * grazing(fresOut) * filledAt(pOut) * edgeAt(pOut) * fgAlpha());
     glass += vec3(0.85, 0.95, 1.0) * exp(-edgeDist(pOut, maskOut) * 28.0) * uEdgeGlow * 0.25 * (1.0 - acc);
   }
 

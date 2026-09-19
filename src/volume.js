@@ -181,6 +181,13 @@ export class VolumeBox {
       uExpFloor: { value: 0 },
       uExpCeil: { value: 1 },
       uSaturation: { value: 0.9 },
+      uBgTex: { value: null },
+      uBgRemove: { value: 0 },
+      uBgThreshold: { value: 0.15 },
+      uTimeTint: { value: 0 },
+      uDepthVol: { value: null },
+      uDepthOn: { value: 0 },
+      uRelief: { value: 0 },
       uGlass: { value: 1 },
       uEdgeGlow: { value: 0.6 },
       uTimeCount: { value: 1 },
@@ -225,6 +232,15 @@ export class VolumeBox {
       depthWrite: false,
     });
 
+    // En neutral 1×1×1-djupkarta, så att uDepthVol alltid har något bundet.
+    this._dummyDepth = new THREE.Data3DTexture(new Uint8Array([128]), 1, 1, 1);
+    this._dummyDepth.format = THREE.RedFormat;
+    this._dummyDepth.type = THREE.UnsignedByteType;
+    this._dummyDepth.unpackAlignment = 1;
+    this._dummyDepth.needsUpdate = true;
+    this.uniforms.uDepthVol.value = this._dummyDepth;
+    this.hasBackground = false;
+
     this.taper = { front: 1, back: 1 };
     this.mesh = new THREE.Mesh(frustumGeometry(1, 1), this.material);
     this.mesh.frustumCulled = false;
@@ -239,6 +255,25 @@ export class VolumeBox {
     const old = this.uniforms.uVolume.value;
     if (old && old !== texture) old.dispose();
     this.uniforms.uVolume.value = texture;
+    // Bakgrunden och djupet hör till det gamla klippet och räknas om vid behov.
+    this.setBackground(null);
+    this.setDepthMap(null);
+  }
+
+  // Bakgrundsbilden (tidsmedianen) som borttagningen jämför mot.
+  setBackground(texture) {
+    const old = this.uniforms.uBgTex.value;
+    if (old && old !== texture) old.dispose();
+    this.uniforms.uBgTex.value = texture;
+    this.hasBackground = !!texture;
+  }
+
+  // AI-djupkartan: enkanalig 3D-textur i samma upplösning som volymen.
+  setDepthMap(texture) {
+    const old = this.uniforms.uDepthVol.value;
+    if (old && old !== texture && old !== this._dummyDepth) old.dispose();
+    this.uniforms.uDepthVol.value = texture || this._dummyDepth;
+    this.uniforms.uDepthOn.value = texture ? 1 : 0;
   }
 
   setVideo(texture) {
@@ -336,6 +371,10 @@ export class VolumeBox {
     u.uExpFloor.value = p.expFloor;
     u.uExpCeil.value = p.expCeil;
     u.uSaturation.value = p.saturation;
+    u.uBgRemove.value = p.bgRemove && this.hasBackground ? 1 : 0;
+    u.uBgThreshold.value = p.bgThreshold;
+    u.uTimeTint.value = p.timeTint;
+    u.uRelief.value = p.depthRelief;
     u.uGlass.value = p.glass;
     u.uEdgeGlow.value = p.edgeGlow;
     u.uTimeCount.value = p.timeOn ? p.timeCount : 0;
