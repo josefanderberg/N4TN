@@ -118,7 +118,7 @@ const RANDOM_DEFAULT_OFF = new Set([
 const RANDOM_RANGE = {
   timeCount: [1, 16], xCount: [0, 12], yCount: [0, 8], timeFull: [1, 6],
   motionGain: [2, 20], motionMist: [0, 2], density: [0.3, 6],
-  wave: [0, 2], sliceWave: [0, 2], specialAmount: [0.2, 1.5],
+  wave: [0, 1], sliceWave: [0, 1], specialAmount: [0.2, 1.5],
   expFloor: [0, 0.35], expCeil: [0.65, 1], brightness: [0.7, 2],
   saturation: [0.3, 1.6], bgThreshold: [0.08, 0.35], depthRelief: [0, 0.35],
   edgeFade: [0, 0.25], timeSeam: [0, 0.25], xSpinSpeed: [0.05, 1],
@@ -1306,7 +1306,7 @@ const sections = [
       { type: 'range', key: 'steps', label: 'Kvalitet (steg)', min: 48, max: 360, step: 1,
         info: 'Hur många steg strålarna tar genom lådan. Fler ger jämnare bild men tyngre rendering.' },
       { type: 'range', key: 'edgeFade', label: 'Tona in och ut vid ändarna', min: 0, max: 0.5, step: 0.005,
-        info: 'Tonar klippets början och slut mot lådans ändar i stället för att de klipps tvärt.' },
+        info: 'Tonar klippets början och slut mot lådans ändar i stället för att de klipps tvärt. I loopläget tonas lådans fram- och bakkant, så skarven inne i lådan lämnas orörd.' },
     ],
   },
   {
@@ -1374,6 +1374,9 @@ const sections = [
       { type: 'range', key: 'waveWidth', label: 'Vågens längd', min: 0.02, max: 1, step: 0.01, pane: true,
         visible: () => ui.sliceTab === 'time' && ui.waveTab === 'played', disabled: (p) => p.wave <= 0,
         info: 'Hur stor del av klippet kring den spelade bildrutan som syns tydligt.' },
+      { type: 'note', pane: true,
+        text: 'Vågstyrka över 1 skär bort allt utanför vågen — i loopläget blir det ett stående svart band där klippet är som längst från den spelade bildrutan. Sänk styrkan till 1 eller lägre om bandet stör.',
+        visible: (p) => ui.sliceTab === 'time' && ui.waveTab === 'played' && p.timeLoop && p.wave > 1 },
       { type: 'range', key: 'sliceWave', label: 'Vågens styrka', min: 0, max: 4, step: 0.01, pane: true,
         visible: () => ui.sliceTab === 'time' && ui.waveTab === 'slices', disabled: (p) => !p.timeOn,
         info: 'Samma våg, men för de övriga ögonblicken: de nära uppspelningen lyser starkast.' },
@@ -1381,6 +1384,9 @@ const sections = [
         visible: () => ui.sliceTab === 'time' && ui.waveTab === 'slices',
         disabled: (p) => !p.timeOn || p.sliceWave <= 0,
         info: 'Hur brett fönstret kring uppspelningen är för de övriga ögonblicken.' },
+      { type: 'note', pane: true,
+        text: 'Vågstyrka över 1 släcker ögonblicken längst från den spelade bildrutan helt — i loopläget syns det som ett stående tomt parti. Sänk styrkan till 1 eller lägre om det stör.',
+        visible: (p) => ui.sliceTab === 'time' && ui.waveTab === 'slices' && p.timeLoop && p.sliceWave > 1 },
 
       // Styrkerampen: fulla ögonblick på en nivå, de emellan på en annan,
       // och bågen går mellan de två.
