@@ -47,7 +47,7 @@ i toppraden slumpar fram en ny look av de reglage som får slumpas — se gruppe
 | **Volym** | Sammanhanget: lådan som klippet byggs in i. Antal bildrutor och upplösning i 3D-texturen — fria tal, skriv vad du vill (2–512 bildrutor, 32–720 px). Raden under visar vad valet kostar i minne och om volymen är byggd med just de värdena. Ändring kräver **Bygg om volym**, som går att trycka på så fort ett klipp är laddat — även med oförändrade värden, för att göra om ett bygge som blev fel eller avbröts. Djupet är ett reglage upp till 5; **Utöka djupet…** öppnar ett fritt fält där du skriver vad du vill upp till 200. **Storlek fram/bak** gör lådan till en tratt: olika storlek på ändarna får innehållet att växa eller krympa genom flödet. Längst ner lådans egna kanter — kantlinjer och kantglöd — samt den vikbara gruppen **Ytor och glas** med glasreflexen och en yta per sida (fram, bak, vänster, höger, tak, botten) och bakgrundsfärgen. |
 | **Utseende** | Helheten inne i lådan: innehåll (bild/rörelse), bakgrundsborttagning med tröskel, blandning, densitet, rörelsedimma, exponeringsbotten och -tak (fönstret däremellan dras ut till full skala — bildrutan som spelas och de fulla ögonblicken behåller sitt ljus), ljusstyrka, mättnad, färg efter tid, renderingskvalitet och sist toningen vid klippets ändar. |
 | **Ögonblick** | Bildrutorna som skarpa plan — flera tider samtidigt. En flik per riktning: djupled (tiden), sidled (X) och höjdled (Y), var och en med antal, position, uppspelning/svep och opacitet. Under Djupled ligger också mönstret mellan ögonblicken: vågen i två underflikar (Bildrutan som spelas och Övriga ögonblick) samt rampen — opacitet mellan ögonblicken, hur många som lyser för fullt och Bågens form. Antalet går till 256; 0 (eller avbockat) stänger av riktningen och gråar ut resten av flikens reglage. |
-| **Special** | Vrider ögonblicken mot kameravinkeln — i sidled, i höjdled eller båda — med håll och styrka. |
+| **Special** | Vrider ögonblicken mot kameravinkeln — i sidled, i höjdled eller båda — med håll och styrka. Här bor också **Stereogram**: två ögonvyer sida vid sida som ger äkta 3D med korsblick eller parallellblick, utan glasögon. |
 | **AI-djup (5D)** | En AI-modell skattar djupet i bildrutorna direkt i webbläsaren, och **Relief** låter ögonblicken bukta mot betraktaren där det är nära. |
 | **Kamera** | Följ ögonblicket, fri musstyrning, pendel eller rotation, hastighet och brännvidd. |
 | **Export** | Bildformat (1:1, 4:5, 9:16, 16:9), bildfrekvens, kvalitet, antal varv och om ljudet ska med. |
@@ -149,6 +149,16 @@ genom lådan. Lådan behåller sin fulla bredd: varje ögonblick sträcker sig f
 **Luta upp och ner (höjdled)** gör samma sak kring sidaxeln: ögonblicken lutar fram och bak
 när kameran panorerar upp eller ner, och de två går att kombinera. **Motsatt håll** vänder
 vridningen, och **Hur mycket** skalar den — kring halv styrka syns lutningen tydligast.
+
+### Stereogram
+
+**Stereogram (3D med blicken)** under Special delar bilden i två vyer, en per öga, med
+**Djupstyrka** som vinkeln mellan dem. Korsa blicken tills de två bilderna glider ihop till en
+tredje i mitten — den är tredimensionell på riktigt, utan glasögon. **Korsblick** (standard)
+lägger högra ögats vy till vänster och funkar på alla skärmstorlekar; **Parallellblick** är
+tvärtom och passar när bilderna är smala och skärmen hålls en bit bort. Börja med låg
+djupstyrka och öka när ögonen har hittat rätt. Exporten spelas in likadant, så 3D-klippen går
+att dela.
 
 ### Solfjädern
 

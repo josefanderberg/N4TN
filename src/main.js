@@ -29,6 +29,9 @@ const DEFAULTS = {
   specialReverse: false,
   specialVertical: false,
   specialAmount: 1,
+  stereo: false,
+  stereoMode: 'cross',
+  stereoAngle: 3,
   shellFront: 0.75,
   shellBack: 0.6,
   shellLeft: 0.75,
@@ -108,6 +111,7 @@ const RANDOM_EXCLUDED = new Set([
 const RANDOM_DEFAULT_OFF = new Set([
   'motion', 'motionSpeed', 'fov', 'followSlice', 'background', 'speed',
   'flipTime', 'steps', 'depth', 'bgRemove', 'timeLoop',
+  'stereo', 'stereoMode', 'stereoAngle',
 ]);
 // Slumpens egna spann där reglagets fulla skala mest ger oanvändbara lägen
 // (256 snitt, djup 200, svart exponering …). Övriga slumpas över hela skalan.
@@ -338,7 +342,8 @@ function fitCamera() {
   }
 
   const tanV = Math.tan(THREE.MathUtils.degToRad(params.fov) / 2);
-  const tanH = tanV * camera.aspect;
+  // I stereogramläget får varje öga bara halva bildbredden.
+  const tanH = tanV * (params.stereo ? camera.aspect / 2 : camera.aspect);
   const distance = Math.max(maxRight / tanH, maxUp / tanV) * 1.1 + maxDepth;
 
   controls.target.set(0, 0, 0);
@@ -424,6 +429,50 @@ function tiltFromCamera() {
   };
 }
 
+// --- Stereogram ------------------------------------------------------------
+
+// Två ögonvyer sida vid sida: kameran vrids ett halvt ögonavstånd åt varje
+// håll kring målet, och varje vy ritas i sin halva av bilden. Vid korsblick
+// ligger högra ögats vy till vänster, så att bilderna smälter ihop när man
+// korsar blicken; parallellblick är tvärtom. Kameran återställs efteråt, så
+// att styrningen och kameraföljningen aldrig märker av ögonen.
+const _stereoSize = new THREE.Vector2();
+const _stereoPos = new THREE.Vector3();
+const _stereoQuat = new THREE.Quaternion();
+const _stereoOffset = new THREE.Vector3();
+const _yAxis = new THREE.Vector3(0, 1, 0);
+
+function renderStereo(frame) {
+  renderer.getSize(_stereoSize);
+  const w = _stereoSize.x;
+  const h = _stereoSize.y;
+  const half = THREE.MathUtils.degToRad(params.stereoAngle) / 2;
+  // Positiv vridning flyttar kameran åt höger: högra ögat.
+  const sign = params.stereoMode === 'cross' ? 1 : -1;
+  _stereoPos.copy(camera.position);
+  _stereoQuat.copy(camera.quaternion);
+  const aspect = camera.aspect;
+  camera.aspect = w / 2 / h;
+  camera.updateProjectionMatrix();
+  renderer.setScissorTest(true);
+  for (const [x, angle] of [[0, sign * half], [w / 2, -sign * half]]) {
+    _stereoOffset.copy(_stereoPos).sub(controls.target).applyAxisAngle(_yAxis, angle);
+    camera.position.copy(controls.target).add(_stereoOffset);
+    camera.lookAt(controls.target);
+    camera.updateMatrixWorld();
+    volume.update(camera, frame);
+    renderer.setViewport(x, 0, w / 2, h);
+    renderer.setScissor(x, 0, w / 2, h);
+    renderer.render(scene, camera);
+  }
+  renderer.setScissorTest(false);
+  renderer.setViewport(0, 0, w, h);
+  camera.position.copy(_stereoPos);
+  camera.quaternion.copy(_stereoQuat);
+  camera.aspect = aspect;
+  camera.updateProjectionMatrix();
+}
+
 // --- Renderloop ----------------------------------------------------------
 
 const timer = new THREE.Timer();
@@ -460,10 +509,13 @@ function tick(timestamp) {
   frameParams.yPosEffective = params.ySweep
     ? 0.5 + 0.45 * Math.sin(state.sweepTime * 0.73 + 1.1)
     : params.yPos;
-  volume.update(camera, frameParams);
-
   renderer.setClearColor(params.background);
-  renderer.render(scene, camera);
+  if (params.stereo) {
+    renderStereo(frameParams);
+  } else {
+    volume.update(camera, frameParams);
+    renderer.render(scene, camera);
+  }
   updateTransport();
 }
 
@@ -1382,7 +1434,7 @@ const sections = [
   {
     title: 'Special',
     accent: '#ff7ad9',
-    hint: 'Vrider ögonblicken mot kameravinkeln, så att de står på diagonalen.',
+    hint: 'Specialtricken: vrid ögonblicken efter kameran, eller se kuben i äkta 3D.',
     items: [
       { type: 'checkbox', key: 'special', label: 'Vrid ögonblicken efter kameran',
         info: 'Ögonblicken vrider sig mot kameran när den åker runt lådan. De går från vägg till vägg och kapas av lådans fram- och baksida.' },
@@ -1394,6 +1446,16 @@ const sections = [
       { type: 'range', key: 'specialAmount', label: 'Hur mycket', min: 0, max: 3, step: 0.01,
         disabled: (p) => !p.special && !p.specialVertical,
         info: 'Hur långt mot kameravinkeln ögonblicken vrids.' },
+      // Stereogrammet: två ögonvyer sida vid sida, äkta 3D utan glasögon.
+      { type: 'checkbox', key: 'stereo', label: 'Stereogram (3D med blicken)',
+        info: 'Delar bilden i två vyer, en per öga. Korsa blicken tills de två bilderna glider ihop till en tredje i mitten — den är tredimensionell på riktigt, utan glasögon. Även exporten spelas in så här, så du kan dela 3D-klipp.' },
+      { type: 'select', key: 'stereoMode', label: 'Betraktningssätt', options: [
+        ['cross', 'Korsblick'], ['parallel', 'Parallellblick'],
+      ], disabled: (p) => !p.stereo,
+        info: 'Korsblick: korsa ögonen tills bilderna möts — funkar på alla skärmstorlekar. Parallellblick: slappna av och titta genom skärmen — kräver att bilderna är smala, håll skärmen en bit bort.' },
+      { type: 'range', key: 'stereoAngle', label: 'Djupstyrka', min: 0.5, max: 8, step: 0.1,
+        disabled: (p) => !p.stereo,
+        info: 'Vinkeln mellan de två ögonvyerna. Högre ger starkare djupkänsla men blir svårare att smälta ihop — börja lågt.' },
     ],
   },
   {
@@ -1560,6 +1622,8 @@ function onParamChange(key) {
   if (key === 'depth' || key === '*') volume.setDepth(params.depth);
   if (key === 'format' || key === '*') layout();
   if (key === 'motion' || key === '*') anchorMotion();
+  // Halva bildbredden per öga: passa in lådan på nytt när läget slås om.
+  if (key === 'stereo') fitCamera();
   saveParams();
   panel.refresh();
 }
