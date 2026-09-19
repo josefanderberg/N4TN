@@ -535,6 +535,25 @@ select {
   border-color: var(--text-dim);
 }
 
+/* Tärningen intill etiketten: om slumpen får röra reglaget. Släckt = fredat. */
+.rand-btn {
+  appearance: none;
+  flex: none;
+  padding: 0 2px;
+  margin-left: 6px;
+  border: none;
+  background: transparent;
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+  vertical-align: -1px;
+}
+
+.rand-btn.is-off {
+  opacity: 0.25;
+  filter: grayscale(1);
+}
+
 .row-info {
   grid-column: 1 / -1;
   margin: 0;

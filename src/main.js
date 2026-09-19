@@ -93,7 +93,59 @@ const DEFAULTS = {
 // Versionen bumpas när standardvärdena ändras, annars vinner gamla sparade inställningar.
 const STORAGE_KEY = 'n4tn.params.v3';
 const PRESET_KEY = 'n4tn.presets.v1';
+const RANDOM_KEY = 'n4tn.random.v1';
 const DEMO_DURATION = 6;
+
+// --- Slumpen ---------------------------------------------------------------
+
+// Reglage som slumpen aldrig rör: bygget kräver ombygge, exporten är filval
+// och nyckelrutorna är ett beräkningsval, inte en del av looken.
+const RANDOM_EXCLUDED = new Set([
+  'frames', 'size', 'format', 'fps', 'bitrate', 'audio', 'loops', 'depthFrames',
+]);
+// Släckta från början: kameran, rummet och de tunga eller omvälvande valen.
+// Tänds med tärningen intill reglaget när väljarläget är på.
+const RANDOM_DEFAULT_OFF = new Set([
+  'motion', 'motionSpeed', 'fov', 'followSlice', 'background', 'speed',
+  'flipTime', 'steps', 'depth', 'bgRemove', 'timeLoop',
+]);
+// Slumpens egna spann där reglagets fulla skala mest ger oanvändbara lägen
+// (256 snitt, djup 200, svart exponering …). Övriga slumpas över hela skalan.
+const RANDOM_RANGE = {
+  timeCount: [1, 16], xCount: [0, 12], yCount: [0, 8], timeFull: [1, 6],
+  motionGain: [2, 20], motionMist: [0, 2], density: [0.3, 6],
+  wave: [0, 2], sliceWave: [0, 2], specialAmount: [0.2, 1.5],
+  expFloor: [0, 0.35], expCeil: [0.65, 1], brightness: [0.7, 2],
+  saturation: [0.3, 1.6], bgThreshold: [0.08, 0.35], depthRelief: [0, 0.35],
+  edgeFade: [0, 0.25], timeSeam: [0, 0.25], xSpinSpeed: [0.05, 1],
+  depth: [0.5, 5], steps: [120, 280], fov: [18, 60], motionSpeed: [0.1, 1],
+  timeOpacity: [0.3, 1], timeFullOpacity: [0.2, 1],
+  timeRestOpacity: [0, 0.8], timeGradient: [0, 0.4], timeCurve: [0.4, 3],
+};
+
+function loadRandomPicks() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(RANDOM_KEY) || '{}');
+    return saved && typeof saved === 'object' ? saved : {};
+  } catch {
+    return {};
+  }
+}
+
+const randomPicks = loadRandomPicks();
+
+function randomOn(key) {
+  return randomPicks[key] ?? !RANDOM_DEFAULT_OFF.has(key);
+}
+
+function setRandomOn(key, on) {
+  randomPicks[key] = on;
+  try {
+    localStorage.setItem(RANDOM_KEY, JSON.stringify(randomPicks));
+  } catch {
+    // Valet gäller ändå tills sidan laddas om.
+  }
+}
 
 function loadParams() {
   try {
@@ -135,6 +187,8 @@ const ui = {
   // Djupet över reglagets max öppnar det fria läget direkt.
   depthExpanded: params.depth > 5,
   shellsOpen: false,
+  // Väljarläget för slumpen: visar en tärning intill varje reglage.
+  randomPick: false,
 };
 
 function loadPresets() {
@@ -1188,9 +1242,9 @@ const sections = [
       { type: 'range', key: 'lumWeight', label: 'Ljusa partier tätare', min: 0, max: 1, step: 0.01,
         info: 'Låter ljusa partier väga tyngre än mörka, så att de tar över i blandningen.' },
       { type: 'range', key: 'expFloor', label: 'Exponeringsbotten', min: 0, max: 0.9, step: 0.01,
-        info: 'Allt mörkare än så här blir svart och resten dras ut — skär bort dis och brus i botten.' },
+        info: 'Allt mörkare än så här blir svart och resten dras ut — skär bort dis och brus i botten. Gäller allt utom bildrutan som spelas och de fulla ögonblicken, som behåller sitt ljus.' },
       { type: 'range', key: 'expCeil', label: 'Exponeringstak', min: 0.1, max: 1, step: 0.01,
-        info: 'Allt ljusare än så här slår i taket och spannet under dras ut till full skala — tyglar utbrända partier.' },
+        info: 'Allt ljusare än så här slår i taket och spannet under dras ut till full skala — tyglar utbrända partier. Gäller allt utom bildrutan som spelas och de fulla ögonblicken.' },
       { type: 'range', key: 'brightness', label: 'Ljusstyrka', min: 0.2, max: 3, step: 0.01,
         info: 'Ljusstyrkan på allt innehåll i lådan.' },
       { type: 'range', key: 'saturation', label: 'Mättnad', min: 0, max: 2, step: 0.01,
@@ -1411,12 +1465,57 @@ const sections = [
     ],
   },
   {
+    title: 'Slumpa',
+    accent: '#ffe066',
+    hint: 'Tärningen i toppraden slumpar looken. Här väljer du vad den får röra.',
+    items: [
+      { type: 'buttons', buttons: [
+        { label: '🎲 Slumpa nu', action: () => randomizeParams() },
+      ], disabled: () => state.exporting,
+        info: 'Slumpar alla reglage som har tärningen tänd — samma som tärningen i toppraden. Bygget (bildrutor och upplösning) och exporten rörs aldrig.' },
+      { type: 'checkbox', label: 'Välj vad som får slumpas',
+        get: () => ui.randomPick, set: (value) => { ui.randomPick = value; },
+        info: 'Visar en tärning intill varje reglage i hela panelen. Tänd tärning = reglaget får slumpas, släckt = det fredas. Valet sparas i webbläsaren. Kamera, rum och de tyngsta valen är släckta från början.' },
+      { type: 'note', text: 'Freda det du redan gillar och slumpa resten. Återställ i toppraden tar dig alltid tillbaka till standard.' },
+    ],
+  },
+  {
     title: 'Sparade inställningar',
     accent: '#8fb9ff',
     hint: 'Spara looks du gillar, och dela dem med en kod.',
     items: [{ type: 'custom', render: renderPresets }],
   },
 ];
+
+// Slumpar alla reglage vars tärning är tänd. Slumpen läser panelbeskrivningen,
+// så nya reglage är automatiskt med utan egen lista — bara spannet kan behöva
+// en rad i RANDOM_RANGE om hela skalan inte är rimlig att slumpa över.
+function randomizeParams() {
+  if (state.exporting) return;
+  const seen = new Set();
+  for (const section of sections) {
+    for (const item of section.items) {
+      const key = item.key;
+      if (!key || seen.has(key) || RANDOM_EXCLUDED.has(key) || !randomOn(key)) continue;
+      seen.add(key);
+      if (item.type === 'checkbox') {
+        params[key] = Math.random() < 0.5;
+      } else if (item.type === 'select') {
+        params[key] = item.options[Math.floor(Math.random() * item.options.length)][0];
+      } else if (item.type === 'color') {
+        // Mörka rumsfärger, så lådan fortfarande lyser mot bakgrunden.
+        const ch = () => Math.floor(Math.random() * 48).toString(16).padStart(2, '0');
+        params[key] = `#${ch()}${ch()}${ch()}`;
+      } else if (item.type === 'range' || item.type === 'number') {
+        const [lo, hi] = RANDOM_RANGE[key] ?? [item.min, item.max];
+        const step = item.step ?? 0.01;
+        const value = lo + Math.random() * (hi - lo);
+        params[key] = Number((Math.round(value / step) * step).toFixed(4));
+      }
+    }
+  }
+  onParamChange('*');
+}
 
 
 // Visar vad de valda inställningarna kostar innan man bygger om.
@@ -1465,7 +1564,14 @@ function onParamChange(key) {
   panel.refresh();
 }
 
-const panel = buildPanel($('panel'), sections, params, DEFAULTS, onParamChange);
+const panel = buildPanel($('panel'), sections, params, DEFAULTS, onParamChange, {
+  picking: () => ui.randomPick,
+  eligible: (key) => !RANDOM_EXCLUDED.has(key),
+  get: randomOn,
+  set: setRandomOn,
+});
+
+$('random-btn').addEventListener('click', randomizeParams);
 
 // Återställningen kräver två klick, så att inte en felklickning slår ut alla inställningar.
 const resetBtn = $('reset-btn');
