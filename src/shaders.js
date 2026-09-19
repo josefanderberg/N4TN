@@ -207,7 +207,11 @@ float edgeAtTime(float t) {
   return smoothstep(0.0, uEdgeFade, t) * smoothstep(0.0, uEdgeFade, 1.0 - t);
 }
 
-float edgeAt(vec3 p) { return edgeAtTime(timeAt(p)); }
+// Toningen ligger vid lådans fram- och bakkant. Utanför loopläget är det
+// samma sak som klippets början och slut, men i loopläget möts klippets
+// ändar inne i lådan (skarven) — en toning där skulle gräva ett vandrande
+// mörkt band som Mjuka skarven aldrig kan ta bort.
+float edgeAt(vec3 p) { return edgeAtTime(0.5 - uTimeDir * p.z); }
 
 // Egen våg för djupsnitten, skild från vågen som gäller volymen och ytorna.
 float sliceWaveAt(float sliceTime) {
@@ -524,9 +528,11 @@ void main() {
       float fg = uBgRemove > 0.5 ? fgMask(c, vec2(uv.x, 1.0 - uv.y)) : 1.0;
       // Exponeringsfönstret gäller allt utom bildrutan som spelas och de fulla
       // ögonblicken: ju fullare snittet är, desto mer behåller det sitt ljus.
+      // Även snittens ändtoning följer lådan i loopläget, inte klippets skarv.
       over(col, acc, tintByTime(gradeExp(c, 1.0 - sliceArc(sliceIndex)), sliceTime),
         fg * sliceAlpha(sliceIndex)
-        * sliceWaveAt(sliceTime) * step(sliceTime, uFilled) * edgeAtTime(sliceTime));
+        * sliceWaveAt(sliceTime) * step(sliceTime, uFilled)
+        * edgeAtTime(uTimeLoop > 0.5 ? 0.5 - uTimeDir * p.z : sliceTime));
       ts += 1e-6;
     }
     ts = tPrev;
