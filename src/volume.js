@@ -178,6 +178,8 @@ export class VolumeBox {
       uSizeFront: { value: 1 },
       uSizeBack: { value: 1 },
       uBrightness: { value: 1.1 },
+      uExpFloor: { value: 0 },
+      uExpCeil: { value: 1 },
       uSaturation: { value: 0.9 },
       uGlass: { value: 1 },
       uEdgeGlow: { value: 0.6 },
@@ -331,6 +333,8 @@ export class VolumeBox {
     const taperBack = p.sizeBack / taperMax;
     this._setTaper(taperFront, taperBack);
     u.uBrightness.value = p.brightness;
+    u.uExpFloor.value = p.expFloor;
+    u.uExpCeil.value = p.expCeil;
     u.uSaturation.value = p.saturation;
     u.uGlass.value = p.glass;
     u.uEdgeGlow.value = p.edgeGlow;

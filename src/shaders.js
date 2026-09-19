@@ -52,6 +52,9 @@ uniform float uShellBottom;
 uniform float uSizeFront;
 uniform float uSizeBack;
 uniform float uBrightness;
+// Exponeringsfönstret: botten kapar det mörka, taket det ljusa.
+uniform float uExpFloor;
+uniform float uExpCeil;
 uniform float uSaturation;
 uniform float uGlass;
 uniform float uEdgeGlow;
@@ -187,6 +190,12 @@ float waveAt(vec3 p) {
 }
 
 vec3 grade(vec3 c) {
+  // Exponeringsfönstret: allt under botten blir svart, allt över taket slår i
+  // taket, och spannet däremellan dras ut till full skala. Med botten 0 och
+  // tak 1 lämnas ljuset orört (även värden över 1 i rörelseläget).
+  if (uExpFloor > 0.001 || uExpCeil < 0.999) {
+    c = clamp((c - uExpFloor) / max(uExpCeil - uExpFloor, 0.01), 0.0, 1.0);
+  }
   c = mix(vec3(luma(c)), c, uSaturation);
   return c * uBrightness;
 }
