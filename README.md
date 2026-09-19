@@ -44,9 +44,10 @@ tillbaka efter en ändring (dubbelklick på reglaget återställer det).
 | Grupp | Vad det gör |
 | --- | --- |
 | **Volym** | Sammanhanget: lådan som klippet byggs in i. Antal bildrutor och upplösning i 3D-texturen — fria tal, skriv vad du vill (2–512 bildrutor, 32–720 px). Raden under visar vad valet kostar i minne och om volymen är byggd med just de värdena. Ändring kräver **Bygg om volym**, som går att trycka på så fort ett klipp är laddat — även med oförändrade värden, för att göra om ett bygge som blev fel eller avbröts. Djupet är ett reglage upp till 5; **Utöka djupet…** öppnar ett fritt fält där du skriver vad du vill upp till 200. **Storlek fram/bak** gör lådan till en tratt: olika storlek på ändarna får innehållet att växa eller krympa genom flödet. Längst ner lådans egna kanter — kantlinjer och kantglöd — samt den vikbara gruppen **Ytor och glas** med glasreflexen och en yta per sida (fram, bak, vänster, höger, tak, botten) och bakgrundsfärgen. |
-| **Utseende** | Helheten inne i lådan: innehåll (bild/rörelse), blandning, densitet, rörelsedimma, exponeringsbotten och -tak (fönstret däremellan dras ut till full skala), ljusstyrka, mättnad, renderingskvalitet och sist toningen vid klippets ändar. |
+| **Utseende** | Helheten inne i lådan: innehåll (bild/rörelse), bakgrundsborttagning med tröskel, blandning, densitet, rörelsedimma, exponeringsbotten och -tak (fönstret däremellan dras ut till full skala), ljusstyrka, mättnad, färg efter tid, renderingskvalitet och sist toningen vid klippets ändar. |
 | **Ögonblick** | Bildrutorna som skarpa plan — flera tider samtidigt. En flik per riktning: djupled (tiden), sidled (X) och höjdled (Y), var och en med antal, position, uppspelning/svep och opacitet. Under Djupled ligger också mönstret mellan ögonblicken: vågen i två underflikar (Bildrutan som spelas och Övriga ögonblick) samt rampen — opacitet mellan ögonblicken, hur många som lyser för fullt och Bågens form. Antalet går till 256; 0 (eller avbockat) stänger av riktningen och gråar ut resten av flikens reglage. |
 | **Special** | Vrider ögonblicken mot kameravinkeln — i sidled, i höjdled eller båda — med håll och styrka. |
+| **AI-djup (5D)** | En AI-modell skattar djupet i bildrutorna direkt i webbläsaren, och **Relief** låter ögonblicken bukta mot betraktaren där det är nära. |
 | **Kamera** | Följ ögonblicket, fri musstyrning, pendel eller rotation, hastighet och brännvidd. |
 | **Export** | Bildformat (1:1, 4:5, 9:16, 16:9), bildfrekvens, kvalitet, antal varv och om ljudet ska med. |
 | **Sparade inställningar** | Längst ner: namngivna uppsättningar av alla reglage — spara, hämta tillbaka, ta bort — samt en kort kod för att dela eller flytta en uppsättning. |
@@ -61,6 +62,14 @@ tillbaka efter en ändring (dubbelklick på reglaget återställer det).
   vilket innehållsläge som helst, så att banorna syns genom lådan.
 * **Bild** — råa bildrutor. Ger den lugnare, rökiga looken där lådans ytor dominerar.
 * **Bild + rörelse** — bilden i botten och rörelsebanorna lysande ovanpå.
+* **Ta bort bakgrunden** — en bakgrundsbild räknas fram ur hela klippet (tidsmedianen per
+  bildpunkt), och allt som ligger nära den släcks: kvar blir det som rör sig eller skiljer
+  sig, svävande fritt i lådan. **Bakgrundströskel** avgör hur stor skillnaden måste vara —
+  höj om bakgrunden skimrar kvar, sänk om motivet äts upp. Fungerar bäst när kameran i
+  klippet står still.
+* **Färg efter tid** — tonar varje ögonblick efter var i klippet det hör hemma: början röd,
+  mitten grön, slutet blå. Tiden blir en färgskala genom lådan; i loopläget går skalan hela
+  varvet runt så att skarven inte byter färg. Med **Mättnad** 0 blir det ren tidsfärg.
 
 ### Ögonblicken
 
@@ -146,6 +155,17 @@ gör dem till plan genom lådans mittaxel, jämnt spridda i vinkel, i stället f
 igenom — som bladen i en hologramfläkt. **Position** vrider solfjädern, **Svep automatiskt**
 snurrar den runt axeln, **Snurrhastighet** styr hur fort och **Centrum (fram–bak)** flyttar
 axeln i djupled.
+
+### AI-djup (5D)
+
+Under **AI-djup (5D)** kan en liten djupmodell (Depth Anything V2) skatta hur nära kameran
+varje del av bilden är. **Beräkna djup (AI)** hämtar modellen (cirka 25–50 MB, bara första
+gången — den läggs i webbläsarens cache) och räknar ut djupet för ett antal **nyckelrutor**;
+bildrutorna däremellan tonas fram. Allt körs lokalt i webbläsaren, klippet laddas aldrig upp.
+När djupet är klart styr **Relief** hur mycket ögonblicken buktar mot betraktaren där det är
+nära: bildrutorna blir små landskap i stället för platta plan, och motivet kliver ut ur
+snittet när kameran rör sig. Djupet hör till det byggda klippet och räknas om efter varje
+nytt bygge.
 
 ### Följ tidssnittet
 

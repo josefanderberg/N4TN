@@ -2,7 +2,8 @@ import './style.css';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { VolumeBox } from './volume.js';
-import { CancelledError, extractFrames, makeDemoVolume } from './frames.js';
+import { CancelledError, backgroundTexture, extractFrames, makeDemoVolume } from './frames.js';
+import { depthTexture, estimateDepth } from './depth.js';
 import { buildPanel } from './ui.js';
 import { CanvasRecorder, downloadBlob, pickMimeType } from './recorder.js';
 import { decodeSettings, encodeSettings } from './code.js';
@@ -12,6 +13,8 @@ const DEFAULTS = {
   size: 320,
 
   content: 1,
+  bgRemove: false,
+  bgThreshold: 0.15,
   motionGain: 8,
   motionMist: 0,
   blend: 1,
@@ -38,6 +41,9 @@ const DEFAULTS = {
   expFloor: 0,
   expCeil: 1,
   saturation: 0.9,
+  timeTint: 0,
+  depthRelief: 0.15,
+  depthFrames: 12,
   glass: 1,
   edgeGlow: 0.6,
   lines: 0.3,
@@ -183,6 +189,9 @@ const state = {
   demoTime: 0,
   sweepTime: 0,
   builtWith: null,
+  depthBusy: false,
+  depthReady: false,
+  depthKeyframes: 0,
 };
 
 // --- Rendering -----------------------------------------------------------
@@ -556,7 +565,10 @@ async function buildVolume() {
       ...settings,
       isCancelled: () => token !== state.loadToken,
       onStart: (texture, info) => {
+        // Nya bildrutor: bakgrunden och AI-djupet hörde till de gamla.
         volume.setVolume(texture);
+        state.depthReady = false;
+        state.depthKeyframes = 0;
         volume.setFilled(0);
         volume.setAspect(info.width / info.height);
         volume.setFrameCount(info.frames);
@@ -573,6 +585,10 @@ async function buildVolume() {
     });
     state.builtWith = settings;
     volume.setExposure(built.meanLuma);
+    // Slogs borttagningen på under bygget räknades medianen på en halvfylld
+    // volym; gör om den på de färdiga bildrutorna.
+    volume.setBackground(null);
+    ensureBackground();
   } catch (err) {
     if (!(err instanceof CancelledError)) showError(err);
   } finally {
@@ -582,6 +598,77 @@ async function buildVolume() {
       syncPanel();
     }
   }
+}
+
+// Bakgrundsbilden räknas fram först när borttagningen faktiskt slås på, ur
+// volymens egna bildrutor — samma väg för demoscenen som för ett riktigt klipp.
+function ensureBackground() {
+  if (!params.bgRemove || volume.hasBackground) return;
+  const image = volume.uniforms.uVolume.value?.image;
+  if (!image?.data) return;
+  volume.setBackground(backgroundTexture(image.data, image.width, image.height, image.depth));
+}
+
+// --- AI-djup ---------------------------------------------------------------
+
+let depthToken = 0;
+
+async function computeDepth() {
+  if (state.building || state.exporting || state.depthBusy) return;
+  const image = volume.uniforms.uVolume.value?.image;
+  if (!image?.data) return;
+  const token = ++depthToken;
+  state.depthBusy = true;
+  busyIsError = false;
+  syncPanel();
+  const cancel = () => {
+    depthToken++;
+    state.depthBusy = false;
+    hideBusy();
+    syncPanel();
+  };
+  showBusy('Hämtar djupmodellen…', 0, cancel);
+
+  try {
+    const result = await estimateDepth(image, {
+      keyframes: params.depthFrames,
+      isCancelled: () => token !== depthToken,
+      onProgress: (label, fraction) => {
+        if (token === depthToken) showBusy(label, fraction, cancel);
+      },
+    });
+    if (token !== depthToken) {
+      result.texture.dispose();
+      return;
+    }
+    volume.setDepthMap(result.texture);
+    state.depthReady = true;
+    state.depthKeyframes = result.keyframes;
+    state.depthBusy = false;
+    hideBusy();
+    syncPanel();
+  } catch (err) {
+    if (token !== depthToken || err instanceof CancelledError) return;
+    state.depthBusy = false;
+    showError(
+      new Error(`Djupet kunde inte beräknas: ${err?.message || err}. Modellen hämtas från nätet första gången — kontrollera uppkopplingen och försök igen.`),
+      computeDepth,
+    );
+    syncPanel();
+  }
+}
+
+function depthStatusText() {
+  if (state.depthBusy) return 'Beräknar…';
+  if (!state.depthReady) {
+    return 'Inget djup beräknat ännu. Knappen hämtar en AI-modell (första gången) och skattar djupet i klippet — allt sker i webbläsaren.';
+  }
+  return `Djupet är klart: ${state.depthKeyframes} nyckelrutor, mellanliggande bildrutor tonas fram. Reglaget Relief styr hur mycket ögonblicken buktar.`;
+}
+
+function updateDepthInfo() {
+  const note = $('depth-status');
+  if (note) note.textContent = depthStatusText();
 }
 
 let busyIsError = false;
@@ -1082,6 +1169,11 @@ const sections = [
       { type: 'select', key: 'content', label: 'Innehåll', options: [
         [0, 'Bild'], [1, 'Rörelse'], [2, 'Bild + rörelse'],
       ], info: 'Bild visar råa bildrutor. Rörelse visar skillnaden mellan bildrutor, så att stillastående faller bort och det som rör sig ritar banor genom lådan. Bild + rörelse lägger banorna lysande ovanpå bilden.' },
+      { type: 'checkbox', key: 'bgRemove', label: 'Ta bort bakgrunden',
+        info: 'Räknar fram en bakgrundsbild ur hela klippet (tidsmedianen) och släcker allt som står stilla — kvar blir det som rör sig eller skiljer sig, svävande fritt i lådan. Kräver fast kamera i klippet.' },
+      { type: 'range', key: 'bgThreshold', label: 'Bakgrundströskel', min: 0.02, max: 0.7, step: 0.01,
+        disabled: (p) => !p.bgRemove,
+        info: 'Hur mycket en punkt måste skilja sig från bakgrunden för att behållas. Höj om bakgrunden skimrar kvar, sänk om motivet äts upp.' },
       { type: 'range', key: 'motionGain', label: 'Rörelsekänslighet', min: 1, max: 40, step: 0.5,
         visible: (p) => p.content !== 0,
         info: 'Hur mycket små rörelser förstärks i rörelseläget.' },
@@ -1103,6 +1195,8 @@ const sections = [
         info: 'Ljusstyrkan på allt innehåll i lådan.' },
       { type: 'range', key: 'saturation', label: 'Mättnad', min: 0, max: 2, step: 0.01,
         info: 'Färgmättnaden, från svartvitt till förstärkta färger.' },
+      { type: 'range', key: 'timeTint', label: 'Färg efter tid', min: 0, max: 1, step: 0.01,
+        info: 'Tonar varje ögonblick efter var i klippet det hör hemma — början röd, mitten grön, slutet blå. Tiden blir en färgskala; i loopläget går skalan hela varvet runt. Prova med Mättnad 0 för ren tidsfärg.' },
       { type: 'range', key: 'steps', label: 'Kvalitet (steg)', min: 48, max: 360, step: 1,
         info: 'Hur många steg strålarna tar genom lådan. Fler ger jämnare bild men tyngre rendering.' },
       { type: 'range', key: 'edgeFade', label: 'Tona in och ut vid ändarna', min: 0, max: 0.5, step: 0.005,
@@ -1249,6 +1343,24 @@ const sections = [
     ],
   },
   {
+    title: 'AI-djup (5D)',
+    accent: '#6fe3ff',
+    hint: 'En AI skattar djupet i bildrutorna, så att ögonblicken får relief.',
+    items: [
+      { type: 'note', id: 'depth-status', text: '' },
+      { type: 'select', key: 'depthFrames', label: 'Nyckelrutor', options: [
+        [6, '6 (snabbt)'], [12, '12'], [24, '24 (noggrant)'],
+      ], info: 'Hur många bildrutor djupet beräknas för; resten tonas fram däremellan. Fler blir följsammare men tar längre tid.' },
+      { type: 'buttons', buttons: [
+        { label: 'Beräkna djup (AI)', id: 'depth-btn', primary: true, action: computeDepth },
+      ], disabled: () => state.building || state.exporting || state.depthBusy,
+        info: 'Hämtar en liten djupmodell (Depth Anything, ca 25–50 MB — bara första gången) och skattar djupet i nyckelrutorna. Allt körs i webbläsaren; klippet laddas aldrig upp.' },
+      { type: 'range', key: 'depthRelief', label: 'Relief', min: 0, max: 0.5, step: 0.005,
+        disabled: () => !state.depthReady,
+        info: 'Hur mycket ögonblicken buktar mot betraktaren där AI:n ser att det är nära — bildrutorna blir små landskap i stället för platta plan. 0 stänger av.' },
+    ],
+  },
+  {
     title: 'Kamera',
     accent: '#9ede8a',
     hint: 'Var kameran står och hur den rör sig.',
@@ -1332,6 +1444,7 @@ function updateVolumeInfo() {
 // Panelen speglar var volymen står: både knapptillstånd och raden som beskriver bygget.
 function syncPanel() {
   updateVolumeInfo();
+  updateDepthInfo();
   panel.refresh();
 }
 
@@ -1342,6 +1455,7 @@ function applyValues(values) {
 
 function onParamChange(key) {
   if (key === 'frames' || key === 'size' || key === '*') updateVolumeInfo();
+  if (key === 'bgRemove' || key === '*') ensureBackground();
   // Ett stort djup från en kod eller ett förval öppnar det fria läget av sig självt.
   if ((key === 'depth' || key === '*') && params.depth > 5) ui.depthExpanded = true;
   if (key === 'depth' || key === '*') volume.setDepth(params.depth);
@@ -1376,6 +1490,8 @@ resetBtn.addEventListener('click', () => {
 volume.setDepth(params.depth);
 applyMute();
 updateVolumeInfo();
+ensureBackground();
+updateDepthInfo();
 
 // En länk med #k=<kod> öppnar delade inställningar direkt.
 const sharedCode = location.hash.slice(1).replace(/^k=/, '');
@@ -1393,5 +1509,20 @@ if (srcParam) {
 }
 
 if (import.meta.env.DEV) {
-  window.__n4tn = { params, state, camera, controls, volume, video, renderer, fitCamera, openSource, exportVideo };
+  window.__n4tn = { params, state, camera, controls, volume, video, renderer, fitCamera, openSource, exportVideo, applyValues };
+  // Testdjup utan modell: ljusstyrkan får låtsas vara närhet, så att reliefen
+  // går att se och provköra även utan nätåtkomst till modellen.
+  window.__n4tn.testDepth = () => {
+    const image = volume.uniforms.uVolume.value.image;
+    const out = new Uint8Array(image.width * image.height * image.depth);
+    for (let i = 0; i < out.length; i++) {
+      const o = i * 4;
+      out[i] = Math.min(255, Math.round(
+        0.2126 * image.data[o] + 0.7152 * image.data[o + 1] + 0.0722 * image.data[o + 2]));
+    }
+    volume.setDepthMap(depthTexture(out, image.width, image.height, image.depth));
+    state.depthReady = true;
+    state.depthKeyframes = image.depth;
+    syncPanel();
+  };
 }

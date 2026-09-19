@@ -42,6 +42,7 @@ const LEGACY = {
 // standardvärden får de inte ändras här, annars skulle gamla koder tolkas fel.
 const BASE = {
   frames: 144, size: 320, content: 1, motionGain: 8, motionMist: 0, blend: 1, density: 2.6,
+  bgRemove: false, bgThreshold: 0.15, timeTint: 0, depthRelief: 0.15,
   lumWeight: 0.4, wave: 0.7, waveWidth: 0.3, edgeFade: 0, sliceWave: 0, sliceWaveWidth: 0.3,
   special: false, specialReverse: false, specialVertical: false, specialAmount: 1, shellFront: 0.75, shellBack: 0.6, brightness: 1.1, saturation: 0.9,
   shellLeft: 0.75, shellRight: 0.75, shellTop: 0.75, shellBottom: 0.75, sizeFront: 1, sizeBack: 1,
@@ -131,6 +132,10 @@ const FIELDS = [
   ['motionMist', 'f1', 0, 5, 0.05],
   ['expFloor', 'f1', 0, 0.9, 0.01],
   ['expCeil', 'f1', 0.1, 1, 0.01],
+  ['bgRemove', 'b'],
+  ['bgThreshold', 'f1', 0.02, 0.7, 0.01],
+  ['timeTint', 'f1', 0, 1, 0.01],
+  ['depthRelief', 'f1', 0, 0.5, 0.005],
 ];
 
 // Crockford base32: inga tecken som går att blanda ihop (I, L, O, U saknas),

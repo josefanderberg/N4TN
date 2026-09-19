@@ -57,6 +57,46 @@ function createTexture(data, width, height, depth) {
   return texture;
 }
 
+// Bakgrundsbilden: tidsmedianen per bildpunkt och kanal över alla bildrutor.
+// Det som rör sig passerar snabbt förbi och röstas bort; kvar blir det stilla.
+export function medianBackground(data, width, height, frames) {
+  const layer = width * height * 4;
+  const out = new Uint8Array(width * height * 4);
+  const hist = new Uint32Array(256);
+  const half = frames >> 1;
+  for (let px = 0; px < width * height; px++) {
+    const base = px * 4;
+    for (let ch = 0; ch < 3; ch++) {
+      hist.fill(0);
+      for (let f = 0; f < frames; f++) hist[data[f * layer + base + ch]]++;
+      let cum = 0;
+      for (let v = 0; v < 256; v++) {
+        cum += hist[v];
+        if (cum > half) {
+          out[base + ch] = v;
+          break;
+        }
+      }
+    }
+    out[base + 3] = 255;
+  }
+  return out;
+}
+
+export function backgroundTexture(data, width, height, frames) {
+  const texture = new THREE.DataTexture(
+    medianBackground(data, width, height, frames),
+    width,
+    height,
+    THREE.RGBAFormat,
+    THREE.UnsignedByteType,
+  );
+  texture.minFilter = THREE.LinearFilter;
+  texture.magFilter = THREE.LinearFilter;
+  texture.needsUpdate = true;
+  return texture;
+}
+
 function createVideo(src) {
   const video = document.createElement('video');
   video.crossOrigin = 'anonymous';
