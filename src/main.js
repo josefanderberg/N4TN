@@ -102,15 +102,18 @@ const DEMO_DURATION = 6;
 // --- Slumpen ---------------------------------------------------------------
 
 // Reglage som slumpen aldrig rör: bygget kräver ombygge, exporten är filval
-// och nyckelrutorna är ett beräkningsval, inte en del av looken.
+// och nyckelrutorna är ett beräkningsval, inte en del av looken. Djupledens
+// tre kryss slumpas inte heller — de tvingas på efter varje slumpning, så att
+// lådan aldrig slumpas till att se tom eller stillastående ut.
 const RANDOM_EXCLUDED = new Set([
   'frames', 'size', 'format', 'fps', 'bitrate', 'audio', 'loops', 'depthFrames',
+  'timeOn', 'timeFollow', 'timeLoop',
 ]);
 // Släckta från början: kameran, rummet och de tunga eller omvälvande valen.
 // Tänds med tärningen intill reglaget när väljarläget är på.
 const RANDOM_DEFAULT_OFF = new Set([
   'motion', 'motionSpeed', 'fov', 'followSlice', 'background', 'speed',
-  'flipTime', 'steps', 'depth', 'bgRemove', 'timeLoop',
+  'flipTime', 'steps', 'depth', 'bgRemove',
   'stereo', 'stereoMode', 'stereoAngle',
 ]);
 // Slumpens egna spann där reglagets fulla skala mest ger oanvändbara lägen
@@ -1540,7 +1543,7 @@ const sections = [
       { type: 'buttons', buttons: [
         { label: '🎲 Slumpa nu', action: () => randomizeParams() },
       ], disabled: () => state.exporting,
-        info: 'Slumpar alla reglage som har tärningen tänd — samma som tärningen i toppraden. Bygget (bildrutor och upplösning) och exporten rörs aldrig.' },
+        info: 'Slumpar alla reglage som har tärningen tänd — samma som tärningen i toppraden. Bygget (bildrutor och upplösning) och exporten rörs aldrig, och djupledens tre kryss (visa ögonblicken, följ uppspelningen, loopa) står alltid på efteråt.' },
       { type: 'checkbox', label: 'Välj vad som får slumpas',
         get: () => ui.randomPick, set: (value) => { ui.randomPick = value; },
         info: 'Visar en tärning intill varje reglage i hela panelen. Tänd tärning = reglaget får slumpas, släckt = det fredas. Valet sparas i webbläsaren. Kamera, rum och de tyngsta valen är släckta från början.' },
@@ -1582,6 +1585,11 @@ function randomizeParams() {
       }
     }
   }
+  // Djupledens tre kryss står alltid på efter en slumpning: ögonblicken
+  // synliga, uppspelningen följd och loopen igång.
+  params.timeOn = true;
+  params.timeFollow = true;
+  params.timeLoop = true;
   onParamChange('*');
 }
 
