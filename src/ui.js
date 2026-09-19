@@ -18,9 +18,12 @@ function formatNumber(value, step) {
 /**
  * Bygger kontrollpanelen från en deklarativ lista.
  * Alla värden skrivs direkt till `params`; `onChange(key)` anropas efter varje ändring.
+ * `random` (valfri) kopplar in slumpen: i väljarläget får varje reglage en
+ * tärningsknapp som slår av och på om slumpen får röra just det reglaget.
  */
-export function buildPanel(root, sections, params, defaults, onChange) {
+export function buildPanel(root, sections, params, defaults, onChange, random = null) {
   const bindings = [];
+  const randButtons = [];
 
   const emit = (key) => {
     onChange(key);
@@ -63,15 +66,24 @@ export function buildPanel(root, sections, params, defaults, onChange) {
     return row;
   }
 
+  // Utan `key` kan rutan i stället styra ett eget tillstånd via get/set,
+  // t.ex. slumpens väljarläge, som inte hör till bildens parametrar.
   function checkboxRow(item) {
     const { key, label } = item;
     const input = el('input', { type: 'checkbox' });
     input.addEventListener('change', () => {
+      if (item.set) {
+        item.set(input.checked);
+        refresh();
+        return;
+      }
       params[key] = input.checked;
       emit(key);
     });
     const row = el('label', { class: 'row row-check' }, input, el('span', {}, label));
-    bindings.push({ item, row, input, sync: () => { input.checked = !!params[key]; } });
+    bindings.push({ item, row, input, sync: () => {
+      input.checked = item.get ? !!item.get() : !!params[key];
+    } });
     return row;
   }
 
@@ -202,6 +214,27 @@ export function buildPanel(root, sections, params, defaults, onChange) {
     fold: foldRow,
   };
 
+  // Tärningen intill etiketten: av och på för om slumpen får röra reglaget.
+  // Syns bara i väljarläget, och släcks (utan att gråas av raden) när den är av.
+  function attachRandom(row, item) {
+    if (!random || !item.key || !random.eligible(item.key)) return;
+    const button = el('button', {
+      type: 'button',
+      class: 'rand-btn',
+      'aria-label': `Får ${item.label ?? item.key} slumpas?`,
+      title: 'Får slumpen röra det här reglaget?',
+    }, '🎲');
+    button.addEventListener('click', (e) => {
+      // Knappen sitter inne i en label; utan detta skulle klicket även slå på radens reglage.
+      e.preventDefault();
+      e.stopPropagation();
+      random.set(item.key, !random.get(item.key));
+      refresh();
+    });
+    (row.querySelector('span span') ?? row.querySelector('span') ?? row).append(button);
+    randButtons.push({ key: item.key, button });
+  }
+
   // Ett litet i intill etiketten fäller ut en förklaring under raden.
   function attachInfo(row, item) {
     if (!item.info) return;
@@ -233,6 +266,7 @@ export function buildPanel(root, sections, params, defaults, onChange) {
       const row = builders[item.type](item);
       // Rader som hör till en flik ovanför markeras, så gränsen mot resten syns.
       if (item.pane) row.classList.add('row-pane');
+      attachRandom(row, item);
       attachInfo(row, item);
       body.append(row);
     }
@@ -248,11 +282,16 @@ export function buildPanel(root, sections, params, defaults, onChange) {
       b.row.hidden = !visible;
       const disabled = locked || (b.item.disabled ? b.item.disabled(params) : false);
       b.row.classList.toggle('is-disabled', disabled);
-      for (const control of b.row.querySelectorAll('input, select, button:not(.info-btn)')) {
+      for (const control of b.row.querySelectorAll('input, select, button:not(.info-btn):not(.rand-btn)')) {
         control.disabled = disabled;
       }
       // Sist, så att egna kontroller kan styra sitt eget läge utan att skrivas över.
       b.sync(disabled);
+    }
+    const picking = !!random?.picking();
+    for (const { key, button } of randButtons) {
+      button.hidden = !picking;
+      button.classList.toggle('is-off', !random.get(key));
     }
   }
 

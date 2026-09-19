@@ -226,16 +226,21 @@ float waveAt(vec3 p) {
   return max(0.0, mix(1.0, exp(-d * d * 4.0), uWave));
 }
 
-vec3 grade(vec3 c) {
-  // Exponeringsfönstret: allt under botten blir svart, allt över taket slår i
-  // taket, och spannet däremellan dras ut till full skala. Med botten 0 och
-  // tak 1 lämnas ljuset orört (även värden över 1 i rörelseläget).
-  if (uExpFloor > 0.001 || uExpCeil < 0.999) {
-    c = clamp((c - uExpFloor) / max(uExpCeil - uExpFloor, 0.01), 0.0, 1.0);
+// Exponeringsfönstret: allt under botten blir svart, allt över taket slår i
+// taket, och spannet däremellan dras ut till full skala. Med botten 0 och
+// tak 1 lämnas ljuset orört (även värden över 1 i rörelseläget).
+// expAmount är hur mycket av fönstret som får verka: bildrutan som spelas och
+// de fulla ögonblicken lämnas orörda (0), allt annat kläms fullt ut (1).
+vec3 gradeExp(vec3 c, float expAmount) {
+  if ((uExpFloor > 0.001 || uExpCeil < 0.999) && expAmount > 0.001) {
+    vec3 w = clamp((c - uExpFloor) / max(uExpCeil - uExpFloor, 0.01), 0.0, 1.0);
+    c = mix(c, w, expAmount);
   }
   c = mix(vec3(luma(c)), c, uSaturation);
   return c * uBrightness;
 }
+
+vec3 grade(vec3 c) { return gradeExp(c, 1.0); }
 
 // Klipper strålen mot planet n·p = d; utsidan är där n·p > d.
 void clipPlane(vec3 o, vec3 d, vec3 n, float dist, inout float t0, inout float t1) {
@@ -340,11 +345,19 @@ float grazing(float fres) { return 0.12 + 0.88 * pow(fres, 1.5); }
 // däremellan bottnar på uTimeRestOpacity, och bågen mellan de två nivåerna
 // formas av uTimeCurve. Räknas på snittets nummer, så att den håller även när
 // snitten är vridna och en punkt inte längre har en enda tid.
+// Hur fullt ett snitt är: 1 vid topparna (den spelade bildrutan och de fulla
+// ögonblicken), 0 i dalarna emellan. Styr både opacitetsrampen och hur mycket
+// exponeringsfönstret får klämma snittet.
+float sliceArc(float sliceIndex) {
+  float phase = sliceIndex * uTimeFull / max(uTimeCount, 1.0);
+  float toNearest = abs(phase - floor(phase + 0.5));
+  return pow(0.5 + 0.5 * cos(6.2831853 * toNearest), uTimeCurve);
+}
+
 float sliceAlpha(float sliceIndex) {
   float phase = sliceIndex * uTimeFull / max(uTimeCount, 1.0);
   float nearest = floor(phase + 0.5);
-  float toNearest = abs(phase - nearest);
-  float arc = pow(0.5 + 0.5 * cos(6.2831853 * toNearest), uTimeCurve);
+  float arc = sliceArc(sliceIndex);
   // Bildrutan som spelas är klarast. Övriga fulla ögonblick börjar på sin
   // egen nivå och tappar ett trappsteg för varje steg bort från den spelade
   // (0,9 → 0,8 → 0,7 …), så att det längst bort visas svagast. nearest är
@@ -509,7 +522,10 @@ void main() {
         : volTexLoop(vec2(uv.x, 1.0 - uv.y), sliceTime);
       // Utan bakgrund blir snitten urklipp: motivet står kvar, resten släpper igenom.
       float fg = uBgRemove > 0.5 ? fgMask(c, vec2(uv.x, 1.0 - uv.y)) : 1.0;
-      over(col, acc, tintByTime(grade(c), sliceTime), fg * sliceAlpha(sliceIndex)
+      // Exponeringsfönstret gäller allt utom bildrutan som spelas och de fulla
+      // ögonblicken: ju fullare snittet är, desto mer behåller det sitt ljus.
+      over(col, acc, tintByTime(gradeExp(c, 1.0 - sliceArc(sliceIndex)), sliceTime),
+        fg * sliceAlpha(sliceIndex)
         * sliceWaveAt(sliceTime) * step(sliceTime, uFilled) * edgeAtTime(sliceTime));
       ts += 1e-6;
     }
