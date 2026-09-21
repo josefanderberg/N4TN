@@ -41,7 +41,7 @@ Allt körs lokalt i webbläsaren. Ingen fil laddas upp någonstans.
 | --- | --- |
 | **Sparade inställningar** | Namngivna uppsättningar av alla reglage: spara, hämta tillbaka, ta bort. Samt en kort kod för att dela eller flytta en uppsättning. |
 | **Volym** | Fyra flikar. **Bildrutor**: antal bildrutor och upplösning i 3D-texturen — fria tal, skriv vad du vill (2–512 bildrutor, 32–720 px). Djupet går till 50, vilket drar ut lådan till en lång korridor. Raden under visar vad valet kostar i minne. Ändring kräver **Bygg om volym**. Här finns också lådans djup och tidsriktning. **Form**, **Bana** och **Tid** böjer, slingrar och klipper om tiden, se nedan. |
-| **Utseende** | Innehåll (bild/rörelse), blandning, densitet, toning vid klippets ändar, hur mycket ytorna syns, ljusstyrka, mättnad, glasreflex, kantglöd, kantlinjer, renderingskvalitet och bakgrundsfärg. |
+| **Utseende** | Innehåll (bild/rörelse), material (rök, vätska, krom, gelé), blandning, densitet, toning vid klippets ändar, hur mycket ytorna syns, ljusstyrka, mättnad, glasreflex, kantglöd, kantlinjer, renderingskvalitet och bakgrundsfärg. |
 | **Snitt** | En flik per riktning: djupled (tiden), sidled (X) och höjdled (Y). Varje flik har antal, position, automatiskt svep och egen opacitet. Antalet går till 256 och styr hur många plan som läggs ut med jämna mellanrum; 0 stänger av riktningen och gråar ut resten av flikens reglage. Fliken **Prisma** viker djupsnittens bilder över på de andra snitten. |
 | **Special** | Vrider djupsnitten mot kameravinkeln, med håll och styrka. |
 | **Kamera** | Följ tidssnittet, fri musstyrning, pendel eller rotation, hastighet och brännvidd. |
@@ -129,6 +129,24 @@ smalt fönster som vandrar genom lådan, en lång ger en mjuk uttoning.
 Styrkan går till 4. Upp till 1 är det en mjuk uttoning; över 1 dras även de närmaste grannarna
 ner och allt utanför fönstret skärs bort helt, så att bara en tunn skiva kring den spelande
 bildrutan blir kvar. Sätt 0 för att visa hela klippet lika starkt.
+
+### Material
+
+Standard är **Rök**, där allt längs strålen vägs ihop. De andra materialen gör innehållet
+till en yta i stället: allt som är ljusare än **Nivå** (i läget Rörelse: allt som rör sig mer
+än den) blir en sammanhängande form, och där strålen träffar dess kant ritas en yta med
+speglingar och högdagrar.
+
+* **Vätska** — blank och genomskinlig, med innehållets färg i kroppen. **Klarhet** styr hur
+  mycket man ser igenom den.
+* **Krom** — speglar en påhittad studio, lätt färgad av innehållet. Tät.
+* **Gelé** — mjuk och mättad, med svag spegling.
+
+**Mjukhet** läser innehållet ur en suddigare version av volymen, så att ytan blir rundare och
+mindre brusig; låga värden ger skarpa, krispiga former. **Glans** styr speglingar och
+högdagrar. Vågen och toningen vid ändarna gäller även här, så en kort våg ger en vätska som
+bara finns kring bildrutan som spelas. Lådans väggar (eller formens yta) blir vätskans kant
+där den är full, som i en behållare.
 
 ### Blandning
 

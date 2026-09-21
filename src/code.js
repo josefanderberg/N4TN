@@ -43,6 +43,7 @@ const BASE = {
   warpAmount: 0, warpRate: 3, warpVariation: 0, warpSpeed: 0, jumpAmount: 0, jumpLength: 0.5,
   pathX: 0, pathY: 0, pathSpin: 0, pathSoft: 0.6, pathSpeed: 0, seed: 1,
   prism: 0, prismReach: 0.5, prismSpread: 0.3, prismView: 0.5,
+  material: 0, liquidLevel: 0.3, liquidSoft: 1.5, liquidGloss: 1, liquidClarity: 0.6,
 };
 
 // Ordningen bestämmer varje fälts nummer i koden. Lägg bara till nya fält sist.
@@ -125,6 +126,11 @@ const FIELDS = [
   ['prismReach', 'f2', 0.02, 3, 0.01],
   ['prismSpread', 'f1', 0, 1, 0.01],
   ['prismView', 'f1', 0, 2, 0.01],
+  ['material', 'i1'],
+  ['liquidLevel', 'f2', 0.01, 1.5, 0.01],
+  ['liquidSoft', 'f1', 0, 4, 0.05],
+  ['liquidGloss', 'f1', 0, 2, 0.01],
+  ['liquidClarity', 'f1', 0, 1, 0.01],
 ];
 
 // Crockford base32: inga tecken som går att blanda ihop (I, L, O, U saknas),

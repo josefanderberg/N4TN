@@ -283,6 +283,11 @@ export class VolumeBox {
       uSaturation: { value: 0.9 },
       uGlass: { value: 1 },
       uEdgeGlow: { value: 0.6 },
+      uMaterial: { value: 0 },
+      uIso: { value: 0.3 },
+      uSoft: { value: 1.5 },
+      uGloss: { value: 1 },
+      uClarity: { value: 0.6 },
       uTimeCount: { value: 1 },
       uTimePos: { value: 0 },
       uTimeOpacity: { value: 0.92 },
@@ -512,6 +517,11 @@ export class VolumeBox {
     u.uSaturation.value = p.saturation;
     u.uGlass.value = p.glass;
     u.uEdgeGlow.value = p.edgeGlow;
+    u.uMaterial.value = p.material;
+    u.uIso.value = p.liquidLevel;
+    u.uSoft.value = p.liquidSoft;
+    u.uGloss.value = p.liquidGloss;
+    u.uClarity.value = p.liquidClarity;
     u.uTimeCount.value = p.timeOn ? p.timeCount : 0;
     u.uTimePos.value = p.timePosEffective;
     u.uTimeOpacity.value = p.timeOpacity;

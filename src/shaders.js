@@ -61,6 +61,12 @@ uniform float uBrightness;
 uniform float uSaturation;
 uniform float uGlass;
 uniform float uEdgeGlow;
+// 0 = rök, 1 = vätska, 2 = krom, 3 = gelé
+uniform int uMaterial;
+uniform float uIso;
+uniform float uSoft;
+uniform float uGloss;
+uniform float uClarity;
 
 // Varje riktning har ett snitt vid sin position plus fler med jämnt mellanrum 1 / antal.
 uniform float uTimeCount;
@@ -140,8 +146,8 @@ float luma(vec3 c) { return dot(c, vec3(0.2126, 0.7152, 0.0722)); }
 // I läget Rörelse visas skillnaden mot nästa bildruta, så stillastående bakgrund
 // blir svart och bara det som rör sig syns inne i lådan.
 vec3 sampleUVT(vec3 uvt) {
-  vec3 c = texture(uVolume, uvt).rgb;
-  if (uContent == 1) return abs(texture(uVolume, uvt + vec3(0.0, 0.0, uFrameStep)).rgb - c) * uMotionGain;
+  vec3 c = textureLod(uVolume, uvt, 0.0).rgb;
+  if (uContent == 1) return abs(textureLod(uVolume, uvt + vec3(0.0, 0.0, uFrameStep), 0.0).rgb - c) * uMotionGain;
   return c;
 }
 
@@ -212,7 +218,7 @@ float sliceFade(float sliceIndex) {
 vec3 sliceImage(float k, float tk, vec2 uv) {
   if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0 || tk < 0.0 || tk > 1.0) return vec3(0.0);
   if (uHasVideo > 0.5 && abs(k) < 0.5) return texture(uVideo, uv).rgb;
-  return texture(uVolume, vec3(uv.x, 1.0 - uv.y, tk)).rgb;
+  return textureLod(uVolume, vec3(uv.x, 1.0 - uv.y, tk), 0.0).rgb;
 }
 
 // Prisma: där djupsnitten möter ett sidosnitt viker deras bilder över på det,
@@ -264,6 +270,55 @@ vec4 finish(vec3 col, float acc, vec3 extra, vec3 glass) {
   return vec4(col, clamp(acc + luma(extra) + luma(glass), 0.0, 1.0));
 }
 
+// --- Vätska ------------------------------------------------------------------
+// Innehållet blir en yta där ljuset (eller rörelsen) går över en nivå. Den läses
+// ur en suddigare mipnivå av volymen, så att ytan blir mjuk i stället för brusig.
+
+vec4 liquidUVT(vec3 uvt) {
+  vec3 c = textureLod(uVolume, uvt, uSoft).rgb;
+  if (uContent == 1) {
+    float dt = uFrameStep * exp2(uSoft);
+    c = abs(textureLod(uVolume, uvt + vec3(0.0, 0.0, dt), uSoft).rgb - c) * uMotionGain;
+  }
+  c = grade(c);
+  return vec4(c, luma(c));
+}
+
+// En påhittad studio att spegla sig i: mörkt golv, ljusare himmel och två mjuka lampor.
+vec3 environment(vec3 d) {
+  vec3 c = mix(vec3(0.015, 0.018, 0.025), vec3(0.35, 0.42, 0.55), smoothstep(-0.3, 0.8, d.y));
+  c += vec3(1.0, 0.97, 0.92) * pow(max(dot(d, normalize(vec3(-0.5, 0.75, 0.45))), 0.0), 60.0) * 3.0;
+  c += vec3(0.7, 0.85, 1.0) * smoothstep(0.93, 0.98, dot(d, normalize(vec3(0.7, 0.2, 0.6)))) * 1.2;
+  return c;
+}
+
+// Ljuset på ytan. n pekar ut ur vätskan, mot betraktaren; base är innehållets färg där.
+vec4 shadeLiquid(vec3 n, vec3 rd, vec3 base) {
+  float cosi = clamp(-dot(n, rd), 0.0, 1.0);
+  float fres = 0.04 + 0.96 * pow(1.0 - cosi, 5.0);
+  vec3 refl = environment(reflect(rd, n));
+  vec3 light = normalize(vec3(-0.5, 0.75, 0.45));
+  float spec = pow(max(dot(n, normalize(light - rd)), 0.0), 90.0);
+  float diff = 0.3 + 0.7 * max(dot(n, light), 0.0);
+  if (uMaterial == 2) {
+    // Krom: speglar allt, färgat lite av innehållet.
+    return vec4(refl * mix(vec3(1.0), base * 1.5 + 0.2, 0.35) + spec * 2.0 * uGloss, 1.0);
+  }
+  if (uMaterial == 3) {
+    // Gelé: mjukt och mättat, svag spegling.
+    vec3 c = base * (0.55 + 0.45 * diff) + (refl * fres * 0.4 + spec * 0.5) * uGloss;
+    return vec4(c, mix(0.5, 0.95, 1.0 - uClarity));
+  }
+  vec3 c = mix(base * diff, refl, fres * min(uGloss, 1.0)) + spec * 1.5 * uGloss;
+  return vec4(c, mix(1.0 - 0.85 * uClarity, 1.0, fres));
+}
+
+// Vätskans inre, mellan ytorna: färgad och mer eller mindre grumlig.
+void liquidBody(vec3 base, float len, inout vec3 col, inout float acc) {
+  float thick = uMaterial == 3 ? 6.0 : 2.5;
+  over(col, acc, base * 0.7, 1.0 - exp(-(1.0 - uClarity) * thick * len));
+}
+
 vec3 glassTint(float fres, vec3 p) {
   return vec3(0.78, 0.9, 1.0) * 0.35 + spectrum(fres * 1.3 + dot(p, vec3(0.6, 0.9, 0.4))) * 0.12;
 }
@@ -311,6 +366,32 @@ vec3 boxSideColor(vec3 p, vec2 fold, vec3 tiltN, vec3 tiltR, float cZero, float 
   vec2 uv = vec2(dot(p * uScale, tiltR) / uScale.x + 0.5, p.y + 0.5);
   vec3 prism = prismColor(s, -uTimeDir, abs(cStep), uv, fold, uScale.xy, rdW.z);
   return mix(c, grade(prism), uPrism);
+}
+
+// Vätskans nivå i lådan. Utanför lådan är den 0, så att lådans väggar blir
+// vätskans kant där den är full.
+float boxField(vec3 p) {
+  if (any(greaterThan(abs(p), vec3(0.4999)))) return 0.0;
+  return liquidUVT(vec3(p.x + 0.5, 0.5 - p.y, timeAt(p))).a * waveAt(p) * edgeAt(p) * filledAt(p);
+}
+
+// Ytan mellan ta och tb, där nivån passerar uIso. Normalen tas ur nivåns lutning.
+void boxLiquidSurface(vec3 rd, vec3 rdW, float ta, float tb, bool entering,
+    inout vec3 col, inout float acc) {
+  for (int k = 0; k < 5; k++) {
+    float tm = 0.5 * (ta + tb);
+    if ((boxField(vOrigin + rd * tm) >= uIso) == entering) tb = tm;
+    else ta = tm;
+  }
+  vec3 p = vOrigin + rd * (entering ? tb : ta);
+  vec3 e = 0.015 / uScale;
+  vec3 g = vec3(
+    boxField(p + vec3(e.x, 0.0, 0.0)) - boxField(p - vec3(e.x, 0.0, 0.0)),
+    boxField(p + vec3(0.0, e.y, 0.0)) - boxField(p - vec3(0.0, e.y, 0.0)),
+    boxField(p + vec3(0.0, 0.0, e.z)) - boxField(p - vec3(0.0, 0.0, e.z)));
+  vec3 n = -normalize(g + vec3(0.0, 1e-7, 0.0));
+  vec4 lit = shadeLiquid(entering ? n : -n, rdW, grade(sampleVol(p)));
+  over(col, acc, lit.rgb, lit.a * (entering ? 1.0 : 0.5));
 }
 
 // Första snittplanet som strålen korsar i [tA, tB), annars -1.
@@ -377,6 +458,9 @@ void main() {
   float dt = 1.0 / uSteps;
   float tPrev = b.x;
   float t = b.x + dt * hash12(gl_FragCoord.xy);
+  // Vätskan: var förra provet låg och om det var inne i vätskan.
+  float tLiquid = b.x;
+  bool inLiquid = false;
 
   for (int i = 0; i < MAX_STEPS; i++) {
     if (tPrev >= b.y || acc > 0.985) break;
@@ -395,7 +479,7 @@ void main() {
       if (uv.x >= 0.0 && uv.x <= 1.0) {
         vec3 c = (uHasVideo > 0.5 && abs(sliceIndex) < 0.5)
           ? texture(uVideo, uv).rgb
-          : texture(uVolume, vec3(uv.x, 1.0 - uv.y, sliceTime)).rgb;
+          : textureLod(uVolume, vec3(uv.x, 1.0 - uv.y, sliceTime), 0.0).rgb;
         over(col, acc, grade(c), uTimeOpacity * sliceFade(sliceIndex)
           * sliceWaveAt(sliceTime) * step(sliceTime, uFilled) * edgeAtTime(sliceTime));
       }
@@ -422,7 +506,13 @@ void main() {
 
     if (t < b.y) {
       vec3 p = vOrigin + rd * t;
-      if (timeAt(p) <= uFilled) {
+      if (uMaterial != 0) {
+        bool inside = boxField(p) >= uIso;
+        if (inside != inLiquid) boxLiquidSurface(rd, rdW, tLiquid, t, inside, col, acc);
+        if (inside) liquidBody(liquidUVT(vec3(p.x + 0.5, 0.5 - p.y, timeAt(p))).rgb, dt * worldPerUnit, col, acc);
+        inLiquid = inside;
+        tLiquid = t;
+      } else if (timeAt(p) <= uFilled) {
         vec3 s = grade(sampleVol(p));
         float k = mix(1.0, 0.25 + 1.5 * luma(s), uLumWeight) * waveAt(p) * edgeAt(p);
         smoke(s, k, dt * worldPerUnit, col, acc, extra);
@@ -432,6 +522,8 @@ void main() {
     tPrev = tEnd;
     t += dt;
   }
+
+  if (inLiquid && acc < 0.985) boxLiquidSurface(rd, rdW, tLiquid, b.y, false, col, acc);
 
   // Baksidan av lådan.
   if (acc < 0.985) {
@@ -629,6 +721,53 @@ vec3 formNormal(Pt P, Frame f, out float edge) {
   return normalize(sideN);
 }
 
+// Vätskans nivå i formen: den högsta av grenarna. Utanför formen är den 0.
+float formField(vec3 p, out vec3 base) {
+  Pt P = pointAt(p);
+  vec2 nr = branchRange(P.ang, P.ang);
+  float best = 0.0;
+  base = vec3(0.0);
+  for (int i = 0; i < MAX_BRANCHES; i++) {
+    float n = nr.x + float(i);
+    if (n > nr.y) break;
+    if (skipBranch(n)) continue;
+    Frame f;
+    if (!frameAt(P, P.ang, n, f) || f.t > uFilled) continue;
+    vec4 l = liquidUVT(uvtOf(f));
+    float v = l.a * waveAtTime(f.t) * edgeAtTime(f.t);
+    if (v > best) {
+      best = v;
+      base = l.rgb;
+    }
+  }
+  return best;
+}
+
+float formField(vec3 p) {
+  vec3 base;
+  return formField(p, base);
+}
+
+void formLiquidSurface(vec3 ro, vec3 rd, float ta, float tb, bool entering,
+    inout vec3 col, inout float acc) {
+  for (int k = 0; k < 5; k++) {
+    float tm = 0.5 * (ta + tb);
+    if ((formField(ro + rd * tm) >= uIso) == entering) tb = tm;
+    else ta = tm;
+  }
+  vec3 p = ro + rd * (entering ? tb : ta);
+  float e = 0.015;
+  vec3 g = vec3(
+    formField(p + vec3(e, 0.0, 0.0)) - formField(p - vec3(e, 0.0, 0.0)),
+    formField(p + vec3(0.0, e, 0.0)) - formField(p - vec3(0.0, e, 0.0)),
+    formField(p + vec3(0.0, 0.0, e)) - formField(p - vec3(0.0, 0.0, e)));
+  vec3 n = -normalize(g + vec3(0.0, 1e-7, 0.0));
+  vec3 base;
+  formField(p, base);
+  vec4 lit = shadeLiquid(entering ? n : -n, rd, base * 1.2);
+  over(col, acc, lit.rgb, lit.a * (entering ? 1.0 : 0.5));
+}
+
 // Ytan av formen där strålen går in (fram) eller ut (bak).
 void formShell(vec3 ro, vec3 rd, float tIn, bool entering,
     inout vec3 col, inout float acc, inout vec3 glass) {
@@ -725,7 +864,7 @@ void formSlices(vec3 ro, vec3 rd, float ta, Pt pa, float angA, float tb, Pt pb, 
               vec2 uv = f.s * 0.5 + 0.5;
               vec3 c = (uHasVideo > 0.5 && abs(k) < 0.5)
                 ? texture(uVideo, uv).rgb
-                : texture(uVolume, vec3(uv.x, 1.0 - uv.y, tk)).rgb;
+                : textureLod(uVolume, vec3(uv.x, 1.0 - uv.y, tk), 0.0).rgb;
               over(col, acc, grade(c), uTimeOpacity * sliceFade(k)
                 * sliceWaveAt(tk) * step(tk, uFilled) * edgeAtTime(tk));
             }
@@ -774,6 +913,8 @@ void main() {
   float angPrev = pPrev.ang;
   bool inPrev = insidePt(pPrev);
   bool slices = uTimeCount > 0.5 || uXCount > 0.5 || uYCount > 0.5;
+  bool liquid = uMaterial != 0;
+  bool inLiquid = false;
 
   for (int i = 0; i < MAX_STEPS; i++) {
     if (tPrev >= b.y || acc > 0.985) break;
@@ -786,8 +927,8 @@ void main() {
     vec3 sCol = vec3(0.0);
     float sAcc = 0.0;
     vec3 sExtra = vec3(0.0);
-    bool inCur = false;
-    vec2 nr = branchRange(pCur.ang, pCur.ang);
+    bool inCur = liquid && insidePt(pCur);
+    vec2 nr = liquid ? vec2(0.0, -1.0) : branchRange(pCur.ang, pCur.ang);
     for (int j = 0; j < MAX_BRANCHES; j++) {
       float n = nr.x + float(j);
       if (n > nr.y) break;
@@ -806,10 +947,18 @@ void main() {
     }
     if (slices) formSlices(ro, rd, tPrev, pPrev, angPrev, tEnd, pCur, ang, col, acc);
 
-    if (uBlend == 1) extra += (1.0 - acc) * sExtra;
-    else if (uBlend == 2) extra = max(extra, sExtra * (1.0 - acc));
-    col += (1.0 - acc) * sCol;
-    acc += (1.0 - acc) * sAcc;
+    if (liquid) {
+      vec3 base;
+      bool inside = formField(pCur.p, base) >= uIso;
+      if (inside != inLiquid) formLiquidSurface(ro, rd, tPrev, tEnd, inside, col, acc);
+      if (inside) liquidBody(base, dt, col, acc);
+      inLiquid = inside;
+    } else {
+      if (uBlend == 1) extra += (1.0 - acc) * sExtra;
+      else if (uBlend == 2) extra = max(extra, sExtra * (1.0 - acc));
+      col += (1.0 - acc) * sCol;
+      acc += (1.0 - acc) * sAcc;
+    }
 
     if (!inCur && inPrev) {
       formShell(ro, rd, surfaceBetween(ro, rd, tPrev, tEnd, true), false, col, acc, glass);

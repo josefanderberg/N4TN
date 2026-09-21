@@ -49,7 +49,9 @@ function createTexture(data, width, height, depth) {
   const texture = new THREE.Data3DTexture(data, width, height, depth);
   texture.format = THREE.RGBAFormat;
   texture.type = THREE.UnsignedByteType;
-  texture.minFilter = THREE.LinearFilter;
+  // Mipnivåerna ger vätskan en suddigare version att läsa ur. Resten läser nivå 0.
+  texture.minFilter = THREE.LinearMipmapLinearFilter;
+  texture.generateMipmaps = true;
   texture.magFilter = THREE.LinearFilter;
   texture.wrapS = texture.wrapT = texture.wrapR = THREE.ClampToEdgeWrapping;
   texture.unpackAlignment = 1;
