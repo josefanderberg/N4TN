@@ -42,6 +42,7 @@ const BASE = {
   bend: 0, bendCenter: 1, bendAxis: 0, bendPitch: 0, formRound: 0, formTwist: 0,
   warpAmount: 0, warpRate: 3, warpVariation: 0, warpSpeed: 0, jumpAmount: 0, jumpLength: 0.5,
   pathX: 0, pathY: 0, pathSpin: 0, pathSoft: 0.6, pathSpeed: 0, seed: 1,
+  prism: 0, prismReach: 0.5, prismSpread: 0.3, prismView: 0.5,
 };
 
 // Ordningen bestämmer varje fälts nummer i koden. Lägg bara till nya fält sist.
@@ -120,6 +121,10 @@ const FIELDS = [
   ['pathSoft', 'f1', 0, 1, 0.01],
   ['pathSpeed', 'f1', 0, 2, 0.01],
   ['seed', 'i2'],
+  ['prism', 'f1', 0, 1, 0.01],
+  ['prismReach', 'f2', 0.02, 3, 0.01],
+  ['prismSpread', 'f1', 0, 1, 0.01],
+  ['prismView', 'f1', 0, 2, 0.01],
 ];
 
 // Crockford base32: inga tecken som går att blanda ihop (I, L, O, U saknas),

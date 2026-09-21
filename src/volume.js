@@ -302,6 +302,10 @@ export class VolumeBox {
       uYCount: { value: 0 },
       uYPos: { value: 0.5 },
       uYOpacity: { value: 0.3 },
+      uPrism: { value: 0 },
+      uPrismReach: { value: 0.5 },
+      uPrismSpread: { value: 0.3 },
+      uPrismView: { value: 0.5 },
 
       uCamRoot: { value: new THREE.Vector3() },
       uBoundsMin: { value: new THREE.Vector3(-0.5, -0.5, -0.5) },
@@ -526,6 +530,10 @@ export class VolumeBox {
     u.uXOpacity.value = p.xOpacity;
     u.uYPos.value = p.yPosEffective;
     u.uYOpacity.value = p.yOpacity;
+    u.uPrism.value = p.prism;
+    u.uPrismReach.value = p.prismReach;
+    u.uPrismSpread.value = p.prismSpread;
+    u.uPrismView.value = p.prismView;
 
     this.group.updateMatrixWorld();
     const f = this.configureForm(p);

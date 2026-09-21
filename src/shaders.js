@@ -82,6 +82,11 @@ uniform float uYCount;
 uniform float uXOpacity;
 uniform float uYPos;
 uniform float uYOpacity;
+// Prisma: djupsnittens bilder viker över på snitten i sidled och höjdled.
+uniform float uPrism;
+uniform float uPrismReach;
+uniform float uPrismSpread;
+uniform float uPrismView;
 
 // Formen. Allt i världsenheter, i gruppens egna koordinater.
 uniform vec3 uBoundsMin;
@@ -202,6 +207,41 @@ float sliceFade(float sliceIndex) {
   return 1.0 - uTimeFade * (1.0 - arc);
 }
 
+// Bilden i djupsnittet k, som har tiden tk, vid uv (0..1, uppåt positivt).
+// Snittet som spelas visas skarpt ur videon.
+vec3 sliceImage(float k, float tk, vec2 uv) {
+  if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0 || tk < 0.0 || tk > 1.0) return vec3(0.0);
+  if (uHasVideo > 0.5 && abs(k) < 0.5) return texture(uVideo, uv).rgb;
+  return texture(uVolume, vec3(uv.x, 1.0 - uv.y, tk)).rgb;
+}
+
+// Prisma: där djupsnitten möter ett sidosnitt viker deras bilder över på det,
+// som om varje bildruta böjdes runt hörnet. Färgerna viker olika långt, som
+// ljus genom ett prisma, och bilden glider när kameran rör sig, som i ett
+// hologram. s är punktens läge räknat i djupsnitt (heltal = på ett snitt) och
+// tiden för snitt k är uTimePos + timeSign * k / antal. gap är avståndet mellan
+// snitten och fold riktningen i bilden som viks över, båda i världsenheter.
+vec3 prismColor(float s, float timeSign, float gap, vec2 uv, vec2 fold, vec2 imgSize, float view) {
+  float k0 = floor(s);
+  float k1 = k0 + 1.0;
+  float d0 = (s - k0) * gap;
+  float d1 = gap - d0;
+  float reach = max(uPrismReach, 1e-3);
+  float w0 = exp(-d0 / reach);
+  float w1 = exp(-d1 / reach);
+  float t0 = uTimePos + timeSign * k0 / uTimeCount;
+  float t1 = uTimePos + timeSign * k1 / uTimeCount;
+  float shift = view * uPrismView;
+  vec3 c = vec3(0.0);
+  for (int ch = 0; ch < 3; ch++) {
+    float spread = 1.0 + (float(ch) - 1.0) * uPrismSpread;
+    vec2 uv0 = uv + fold * (d0 * spread + shift) / imgSize;
+    vec2 uv1 = uv - fold * (d1 * spread - shift) / imgSize;
+    c[ch] = sliceImage(k0, t0, uv0)[ch] * w0 + sliceImage(k1, t1, uv1)[ch] * w1;
+  }
+  return c;
+}
+
 // Ett prov av röken, vägt mot det som redan ligger längs strålen enligt blandningsläget.
 void smoke(vec3 s, float k, float len, inout vec3 col, inout float acc, inout vec3 extra) {
   if (uBlend == 0) {
@@ -261,6 +301,16 @@ vec3 faceNormal(vec3 p) {
 float edgeDist(vec3 p, vec3 n) {
   vec3 q = (0.5 - abs(p)) * uScale + abs(n) * 1e3;
   return min(q.x, min(q.y, q.z));
+}
+
+// Färgen på ett snitt i sidled eller höjdled, med prismat om det är på.
+vec3 boxSideColor(vec3 p, vec2 fold, vec3 tiltN, vec3 tiltR, float cZero, float cStep, vec3 rdW) {
+  vec3 c = grade(sampleVol(p));
+  if (uPrism <= 0.0 || uTimeCount < 0.5) return c;
+  float s = (dot(tiltN, p * uScale) - cZero) / cStep;
+  vec2 uv = vec2(dot(p * uScale, tiltR) / uScale.x + 0.5, p.y + 0.5);
+  vec3 prism = prismColor(s, -uTimeDir, abs(cStep), uv, fold, uScale.xy, rdW.z);
+  return mix(c, grade(prism), uPrism);
 }
 
 // Första snittplanet som strålen korsar i [tA, tB), annars -1.
@@ -356,7 +406,8 @@ void main() {
       ts = nextSlice(ts, tEnd, aX, bX);
       if (ts < 0.0) break;
       vec3 p = vOrigin + rd * ts;
-      over(col, acc, grade(sampleVol(p)), uXOpacity * filledAt(p) * waveAt(p) * edgeAt(p));
+      over(col, acc, boxSideColor(p, vec2(1.0, 0.0), tiltN, tiltR, cZero, cStep, rdW),
+        uXOpacity * filledAt(p) * waveAt(p) * edgeAt(p));
       ts += 1e-6;
     }
     ts = tPrev;
@@ -364,7 +415,8 @@ void main() {
       ts = nextSlice(ts, tEnd, aY, bY);
       if (ts < 0.0) break;
       vec3 p = vOrigin + rd * ts;
-      over(col, acc, grade(sampleVol(p)), uYOpacity * filledAt(p) * waveAt(p) * edgeAt(p));
+      over(col, acc, boxSideColor(p, vec2(0.0, 1.0), tiltN, tiltR, cZero, cStep, rdW),
+        uYOpacity * filledAt(p) * waveAt(p) * edgeAt(p));
       ts += 1e-6;
     }
 
@@ -679,8 +731,22 @@ void formSlices(vec3 ro, vec3 rd, float ta, Pt pa, float angA, float tb, Pt pb, 
             }
           } else {
             float opacity = family == 1 ? uXOpacity : uYOpacity;
-            over(col, acc, grade(sampleUVT(uvtOf(f))),
-              opacity * step(f.t, uFilled) * waveAtTime(f.t) * edgeAtTime(f.t));
+            vec3 c = grade(sampleUVT(uvtOf(f)));
+            if (uPrism > 0.0 && uTimeCount > 0.5) {
+              vec3 p = ro + rd * tr;
+              float len = uDepthW;
+              vec3 along = vec3(0.0, 0.0, 1.0);
+              if (uBend > 0.0) {
+                vec3 e = uRadDir * cos(f.thW) + uTanDir * sin(f.thW);
+                len = uBend * max(abs(dot(p - uAxisPoint, e)), 0.05);
+                along = uTanDir * cos(f.thW) - uRadDir * sin(f.thW);
+              }
+              vec2 fold = family == 1 ? vec2(1.0, 0.0) : vec2(0.0, 1.0);
+              vec3 prism = prismColor((f.t - uTimePos) * uTimeCount, 1.0, len / uTimeCount,
+                f.s * 0.5 + 0.5, fold, 2.0 * uHalf, dot(rd, along));
+              c = mix(c, grade(prism), uPrism);
+            }
+            over(col, acc, c, opacity * step(f.t, uFilled) * waveAtTime(f.t) * edgeAtTime(f.t));
           }
         }
         k += dir;

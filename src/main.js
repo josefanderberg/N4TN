@@ -70,6 +70,10 @@ const DEFAULTS = {
   yPos: 0.5,
   ySweep: false,
   yOpacity: 0.3,
+  prism: 0,
+  prismReach: 0.5,
+  prismSpread: 0.3,
+  prismView: 0.5,
 
   speed: 1,
   followSlice: true,
@@ -976,6 +980,12 @@ const FORM_PRESETS = {
   Spiral: { bend: 1080, bendCenter: 1.6, bendPitch: 1.1, formRound: 0.5 },
 };
 
+// Ett utgångsläge för prismat: glesa djupsnitt och några sidosnitt som bilderna viker över på.
+const HOLOGRAM = {
+  timeOn: true, timeCount: 10, timeOpacity: 0.35, timeFade: 0,
+  xCount: 4, xOpacity: 0.6, prism: 1, prismReach: 0.6, prismSpread: 0.35, prismView: 0.6,
+};
+
 // Ändringar som ger formen en annan storlek; då flyttas kameran så att den ryms.
 const FORM_KEYS = new Set([
   'bend', 'bendCenter', 'bendAxis', 'bendPitch', 'formRound', 'formTwist',
@@ -1133,7 +1143,7 @@ const sections = [
     hint: 'Skarpa plan genom lådan — en flik per riktning.',
     items: [
       { type: 'tabs',
-        tabs: [['time', 'Djupled'], ['x', 'Sidled'], ['y', 'Höjdled']],
+        tabs: [['time', 'Djupled'], ['x', 'Sidled'], ['y', 'Höjdled'], ['prism', 'Prisma']],
         get: () => ui.sliceTab,
         set: (value) => { ui.sliceTab = value; } },
 
@@ -1179,6 +1189,21 @@ const sections = [
         visible: () => ui.sliceTab === 'y', disabled: (p) => p.yCount < 1 || p.ySweep },
       { type: 'range', key: 'yOpacity', label: 'Opacitet', min: 0, max: 1, step: 0.01,
         visible: () => ui.sliceTab === 'y', disabled: (p) => p.yCount < 1 },
+
+      { type: 'range', key: 'prism', label: 'Styrka', min: 0, max: 1, step: 0.01,
+        visible: () => ui.sliceTab === 'prism' },
+      { type: 'range', key: 'prismReach', label: 'Räckvidd', min: 0.02, max: 3, step: 0.01,
+        visible: () => ui.sliceTab === 'prism', disabled: (p) => p.prism <= 0 },
+      { type: 'range', key: 'prismSpread', label: 'Regnbåge', min: 0, max: 1, step: 0.01,
+        visible: () => ui.sliceTab === 'prism', disabled: (p) => p.prism <= 0 },
+      { type: 'range', key: 'prismView', label: 'Följer kameran', min: 0, max: 2, step: 0.01,
+        visible: () => ui.sliceTab === 'prism', disabled: (p) => p.prism <= 0 },
+      { type: 'note', text: 'Prismat syns där djupsnitten möter snitten i sidled och höjdled — slå på båda sorterna.',
+        visible: (p) => ui.sliceTab === 'prism' && (!p.timeOn || (p.xCount < 1 && p.yCount < 1)) },
+      { type: 'buttons', buttons: [{ label: 'Prova hologram', action: () => {
+        Object.assign(params, HOLOGRAM);
+        onParamChange('*');
+      } }], visible: () => ui.sliceTab === 'prism' },
     ],
   },
   {
