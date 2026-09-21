@@ -468,6 +468,16 @@ export class VolumeBox {
     return f;
   }
 
+  /** Var punkten (x, y, t) i volymen hamnar i rummet, med formen i vila. x, y och t går 0..1, y nedåt. */
+  placeInVolume(out, x, y, t) {
+    const f = this.form;
+    const spin = f.spin;
+    f.spin = 0;
+    formPoint(out, f, 2 * x - 1, 1 - 2 * y, t);
+    f.spin = spin;
+    return out;
+  }
+
   /**
    * Punkter som kameran ska rymma: lådans hörn, eller punkter runt formens kant.
    * Snurrar formen med tidssnittet ryms ändlägena också.

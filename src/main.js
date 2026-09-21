@@ -5,6 +5,7 @@ import { VolumeBox, hasForm, hasPath, isBent } from './volume.js';
 import { CancelledError, extractFrames, makeDemoVolume } from './frames.js';
 import { buildPanel } from './ui.js';
 import { CanvasRecorder, downloadBlob, pickMimeType } from './recorder.js';
+import { Particles } from './particles.js';
 import { decodeSettings, encodeSettings } from './code.js';
 
 const DEFAULTS = {
@@ -79,6 +80,20 @@ const DEFAULTS = {
   prismReach: 0.5,
   prismSpread: 0.3,
   prismView: 0.5,
+
+  particles: false,
+  particlesVolume: false,
+  particleCount: 65536,
+  particleSize: 1,
+  particleForce: 3,
+  particleAuto: 0,
+  gravity: false,
+  gravityStrength: 6,
+  particleBounce: 0.5,
+  particleHome: 1,
+  particleSwirl: 0,
+  particleContainer: 1.6,
+  particleBox: true,
 
   speed: 1,
   followSlice: true,
@@ -196,6 +211,9 @@ controls.maxDistance = 400;
 const volume = new VolumeBox();
 scene.add(volume.group);
 
+const particles = new Particles(renderer);
+scene.add(particles.group);
+
 const demo = makeDemoVolume();
 volume.setVolume(demo.texture);
 volume.setAspect(demo.width / demo.height);
@@ -246,6 +264,17 @@ const _up = new THREE.Vector3();
 // Med keepDirection behålls vinkeln kameran har nu och bara avståndet ändras.
 function fitCamera(keepDirection = false) {
   const points = volume.fitPoints(params);
+  // Partiklarna kan flyga ut till behållarens väggar, så då ska den rymmas.
+  if (params.particles) {
+    const { min, max } = updateContainer();
+    for (let i = 0; i < 8; i++) {
+      points.push(new THREE.Vector3(
+        i & 1 ? max.x : min.x,
+        i & 2 ? max.y : min.y,
+        i & 4 ? max.z : min.z,
+      ));
+    }
+  }
   _dir.copy(camera.position).sub(controls.target);
   if (keepDirection && _dir.lengthSq() > 1e-8) {
     _dir.normalize();
@@ -361,6 +390,50 @@ function tiltFromCamera() {
   return sign * azimuth * params.specialAmount;
 }
 
+// --- Partiklar ------------------------------------------------------------
+
+const particleState = { clock: 0, shapeDirty: true, container: new THREE.Box3() };
+const _drawSize = new THREE.Vector2();
+const placeParticle = (out, x, y, t) => volume.placeInVolume(out, x, y, t);
+
+// Behållaren är lådan runt formen, förstorad kring sin mitt.
+function updateContainer() {
+  const box = particleState.container.setFromPoints(volume.fitPoints(params));
+  const center = box.getCenter(new THREE.Vector3());
+  const half = box.getSize(new THREE.Vector3()).multiplyScalar(0.5 * params.particleContainer);
+  return box.set(center.clone().sub(half), center.add(half));
+}
+
+function updateParticles(dt) {
+  const on = params.particles;
+  particles.points.visible = on;
+  particles.box.visible = on && params.particleBox;
+  volume.group.visible = !on || params.particlesVolume;
+  if (!on) return;
+
+  particles.ensure(params);
+  if (particleState.shapeDirty) {
+    volume.configureForm(params);
+    updateContainer();
+    if (!particles.dirty) particles.place(placeParticle);
+    particleState.shapeDirty = false;
+  }
+  if (particles.dirty && !state.building) {
+    volume.configureForm(params);
+    particles.seed(volume.uniforms.uVolume.value, placeParticle, params);
+  }
+  if (params.particleAuto > 0) {
+    particleState.clock += dt;
+    if (particleState.clock >= params.particleAuto) {
+      particleState.clock = 0;
+      particles.fling();
+    }
+  }
+  renderer.getDrawingBufferSize(_drawSize);
+  const pixels = _drawSize.y / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2));
+  particles.update(dt, frameParams, particleState.container, pixels);
+}
+
 // --- Renderloop ----------------------------------------------------------
 
 const timer = new THREE.Timer();
@@ -402,6 +475,7 @@ function tick(timestamp) {
     ? 0.5 + 0.45 * Math.sin(state.sweepTime * 0.73 + 1.1)
     : params.yPos;
   volume.update(camera, frameParams);
+  updateParticles(dt);
 
   renderer.setClearColor(params.background);
   renderer.render(scene, camera);
@@ -554,6 +628,7 @@ async function buildVolume() {
       },
     });
     state.builtWith = settings;
+    particles.dirty = true;
     volume.setExposure(built.meanLuma);
     updateVolumeInfo();
     updateJumpInfo();
@@ -994,7 +1069,7 @@ const HOLOGRAM = {
 // Ändringar som ger formen en annan storlek; då flyttas kameran så att den ryms.
 const FORM_KEYS = new Set([
   'bend', 'bendCenter', 'bendAxis', 'bendPitch', 'formRound', 'formTwist',
-  'pathX', 'pathY', 'pathSpin', 'pathSoft', 'seed', 'form', '*',
+  'pathX', 'pathY', 'pathSpin', 'pathSoft', 'seed', 'form', '*', 'particles', 'particleContainer',
 ]);
 
 function newSeed() {
@@ -1157,6 +1232,41 @@ const sections = [
     ],
   },
   {
+    title: 'Partiklar',
+    accent: '#7ee0ff',
+    hint: 'Gör om tidskuben till partiklar som kan slungas ut i en behållare.',
+    items: [
+      { type: 'checkbox', key: 'particles', label: 'Gör om till partiklar' },
+      { type: 'checkbox', key: 'particlesVolume', label: 'Visa volymen också',
+        disabled: (p) => !p.particles },
+      { type: 'select', key: 'particleCount', label: 'Antal', options: [
+        [16384, '16 000'], [65536, '65 000'], [262144, '262 000'],
+      ], disabled: (p) => !p.particles },
+      { type: 'range', key: 'particleSize', label: 'Storlek', min: 0.2, max: 5, step: 0.05,
+        disabled: (p) => !p.particles },
+      { type: 'buttons', buttons: [
+        { label: 'Slunga ut', primary: true, action: () => particles.fling() },
+        { label: 'Samla ihop', action: () => particles.gather() },
+      ], disabled: (p) => !p.particles },
+      { type: 'range', key: 'particleForce', label: 'Kraft utåt', min: 0.2, max: 12, step: 0.1,
+        disabled: (p) => !p.particles },
+      { type: 'range', key: 'particleAuto', label: 'Slunga ut var n:e sekund', min: 0, max: 10, step: 0.1,
+        disabled: (p) => !p.particles },
+      { type: 'checkbox', key: 'gravity', label: 'Gravitation', disabled: (p) => !p.particles },
+      { type: 'range', key: 'gravityStrength', label: 'Tyngd', min: 0.5, max: 25, step: 0.1,
+        disabled: (p) => !p.particles || !p.gravity },
+      { type: 'range', key: 'particleBounce', label: 'Studs', min: 0, max: 1, step: 0.01,
+        disabled: (p) => !p.particles },
+      { type: 'range', key: 'particleHome', label: 'Dras tillbaka', min: 0, max: 6, step: 0.05,
+        disabled: (p) => !p.particles },
+      { type: 'range', key: 'particleSwirl', label: 'Virvel', min: 0, max: 4, step: 0.05,
+        disabled: (p) => !p.particles },
+      { type: 'range', key: 'particleContainer', label: 'Behållarens storlek', min: 1, max: 4, step: 0.05,
+        disabled: (p) => !p.particles },
+      { type: 'checkbox', key: 'particleBox', label: 'Visa behållaren', disabled: (p) => !p.particles },
+    ],
+  },
+  {
     title: 'Snitt',
     accent: '#ffc978',
     hint: 'Skarpa plan genom lådan — en flik per riktning.',
@@ -1309,9 +1419,17 @@ function applyValues(values) {
   onParamChange('*');
 }
 
+// Inställningar som ändrar vilka punkter partiklarna hämtas ur, eller var de hör hemma.
+const PARTICLE_SOURCE_KEYS = new Set(['content', 'motionGain', '*']);
+const PARTICLE_SHAPE_KEYS = new Set([
+  ...FORM_KEYS, 'depth', 'flipTime', 'followSlice',
+]);
+
 function onParamChange(key) {
   if (key === 'frames' || key === 'size' || key === '*') updateVolumeInfo();
   if (key === 'depth' || key === '*') volume.setDepth(params.depth);
+  if (PARTICLE_SOURCE_KEYS.has(key)) particles.dirty = true;
+  if (PARTICLE_SHAPE_KEYS.has(key)) particleState.shapeDirty = true;
   if (FORM_KEYS.has(key)) fitCamera(true);
   updateJumpInfo();
   if (key === 'format' || key === '*') layout();
@@ -1364,5 +1482,5 @@ if (srcParam) {
 }
 
 if (import.meta.env.DEV) {
-  window.__n4tn = { params, state, camera, controls, volume, video, renderer, fitCamera, openSource, exportVideo };
+  window.__n4tn = { params, state, camera, controls, volume, particles, video, renderer, fitCamera, openSource, exportVideo };
 }

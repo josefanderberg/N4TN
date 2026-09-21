@@ -44,6 +44,9 @@ const BASE = {
   pathX: 0, pathY: 0, pathSpin: 0, pathSoft: 0.6, pathSpeed: 0, seed: 1,
   prism: 0, prismReach: 0.5, prismSpread: 0.3, prismView: 0.5,
   material: 0, liquidLevel: 0.3, liquidSoft: 1.5, liquidGloss: 1, liquidClarity: 0.6,
+  particles: false, particlesVolume: false, particleCount: 65536, particleSize: 1, particleForce: 3,
+  particleAuto: 0, gravity: false, gravityStrength: 6, particleBounce: 0.5, particleHome: 1,
+  particleSwirl: 0, particleContainer: 1.6, particleBox: true,
 };
 
 // Ordningen bestämmer varje fälts nummer i koden. Lägg bara till nya fält sist.
@@ -131,6 +134,19 @@ const FIELDS = [
   ['liquidSoft', 'f1', 0, 4, 0.05],
   ['liquidGloss', 'f1', 0, 2, 0.01],
   ['liquidClarity', 'f1', 0, 1, 0.01],
+  ['particles', 'b'],
+  ['particlesVolume', 'b'],
+  ['particleCount', 'e', [16384, 65536, 262144]],
+  ['particleSize', 'f1', 0.2, 5, 0.05],
+  ['particleForce', 'f1', 0.2, 12, 0.1],
+  ['particleAuto', 'f1', 0, 10, 0.1],
+  ['gravity', 'b'],
+  ['gravityStrength', 'f1', 0.5, 25, 0.1],
+  ['particleBounce', 'f1', 0, 1, 0.01],
+  ['particleHome', 'f1', 0, 6, 0.05],
+  ['particleSwirl', 'f1', 0, 4, 0.05],
+  ['particleContainer', 'f1', 1, 4, 0.05],
+  ['particleBox', 'b'],
 ];
 
 // Crockford base32: inga tecken som går att blanda ihop (I, L, O, U saknas),

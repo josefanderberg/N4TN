@@ -42,6 +42,7 @@ Allt körs lokalt i webbläsaren. Ingen fil laddas upp någonstans.
 | **Sparade inställningar** | Namngivna uppsättningar av alla reglage: spara, hämta tillbaka, ta bort. Samt en kort kod för att dela eller flytta en uppsättning. |
 | **Volym** | Fyra flikar. **Bildrutor**: antal bildrutor och upplösning i 3D-texturen — fria tal, skriv vad du vill (2–512 bildrutor, 32–720 px). Djupet går till 50, vilket drar ut lådan till en lång korridor. Raden under visar vad valet kostar i minne. Ändring kräver **Bygg om volym**. Här finns också lådans djup och tidsriktning. **Form**, **Bana** och **Tid** böjer, slingrar och klipper om tiden, se nedan. |
 | **Utseende** | Innehåll (bild/rörelse), material (rök, vätska, krom, gelé), blandning, densitet, toning vid klippets ändar, hur mycket ytorna syns, ljusstyrka, mättnad, glasreflex, kantglöd, kantlinjer, renderingskvalitet och bakgrundsfärg. |
+| **Partiklar** | Gör om tidskuben till partiklar som kan slungas ut, falla med gravitation, studsa mot en behållare, virvla och dras tillbaka till bilden. |
 | **Snitt** | En flik per riktning: djupled (tiden), sidled (X) och höjdled (Y). Varje flik har antal, position, automatiskt svep och egen opacitet. Antalet går till 256 och styr hur många plan som läggs ut med jämna mellanrum; 0 stänger av riktningen och gråar ut resten av flikens reglage. Fliken **Prisma** viker djupsnittens bilder över på de andra snitten. |
 | **Special** | Vrider djupsnitten mot kameravinkeln, med håll och styrka. |
 | **Kamera** | Följ tidssnittet, fri musstyrning, pendel eller rotation, hastighet och brännvidd. |
@@ -168,6 +169,22 @@ inställningar** och tryck Spara. Uppsättningen hamnar i listan och ligger kvar
 till nästa gång. Byter du dator eller rensar webbläsaren är det koden nedan som gäller —
 spara koden för de looks du bryr dig om, så kan du alltid få tillbaka dem.
 
+### Partiklar
+
+**Gör om till partiklar** byter volymen mot ett punktmoln. Partiklarna hämtas ur volymen —
+ur det som är ljust, eller i läget Rörelse ur det som rör sig — och får färgen därifrån. De
+ligger där formen säger, så en donut blir en ring av partiklar. Vågen under Utseende gäller
+dem också, så tider nära uppspelningen lyser starkast.
+
+**Slunga ut** skjuter iväg dem från mitten med **Kraft utåt**, och **Slunga ut var n:e
+sekund** gör det av sig självt. Med **Gravitation** faller de mot behållarens golv, där de
+studsar (**Studs**) och bromsas upp. **Dras tillbaka** drar dem mot sina platser i bilden,
+så att tidskuben byggs upp igen efter varje utkast — sätt den till 0 för att låta dem ligga
+kvar. **Virvel** får dem att snurra runt i ett mjukt flöde, och **Samla ihop** lägger dem på
+plats direkt. Behållaren är lådan runt formen, förstorad med **Behållarens storlek**.
+**Visa volymen också** ritar volymen bakom partiklarna. Rörelsen räknas på grafikkortet, så
+även 262 000 partiklar går lätt.
+
 ### Prisma
 
 **Snitt → Prisma** får djupsnitten och snitten i sidled och höjdled att samverka. Där ett
@@ -243,9 +260,11 @@ renderingen i bakgrundsflikar. Filen laddas ned som MP4 om webbläsaren stödjer
    `src/volume.js` räknar samma form åt andra hållet för konturer och kamerans inpassning.
 3. Det skarpa tidssnittet samplas från en `VideoTexture` i full upplösning, inte från volymen.
    Rörelseläget jämför två närliggande lager i volymen per sampling.
-4. `src/recorder.js` spelar in canvasen med `MediaRecorder` och lägger till ljudet från
+4. `src/particles.js` väljer partiklar ur volymens data och simulerar dem på grafikkortet
+   med `GPUComputationRenderer`: en textur för lägen och en för hastigheter.
+5. `src/recorder.js` spelar in canvasen med `MediaRecorder` och lägger till ljudet från
    videon via Web Audio.
-5. `src/code.js` packar inställningarna till delningskoden: bara värden som skiljer sig från
+6. `src/code.js` packar inställningarna till delningskoden: bara värden som skiljer sig från
    en frusen referens skrivs med, ett fält i taget, och resultatet skrivs i Crockford base32
    med en kontrollsiffra på slutet.
 
