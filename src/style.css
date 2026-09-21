@@ -769,6 +769,16 @@ input[type='range']:disabled {
   line-height: 1.2;
   cursor: pointer;
   opacity: 0.75;
+  transition: background 0.9s, box-shadow 0.9s, border-color 0.9s, opacity 0.9s;
+}
+
+/* Lyser upp på de avsnitt som tärningen i toppraden just ändrade. */
+.sec-btn.is-lit {
+  opacity: 1;
+  border-color: var(--sec-accent);
+  background: color-mix(in srgb, var(--sec-accent) 40%, transparent);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--sec-accent) 70%, transparent);
+  transition: none;
 }
 
 .sec-btn + .sec-btn {

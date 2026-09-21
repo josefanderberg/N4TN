@@ -378,8 +378,19 @@ export function buildPanel(root, sections, params, defaults, onChange, random = 
 
   refresh();
 
+  // Tärningen i rubriken lyser upp en stund på de avsnitt som ändrades.
+  let lightTimer = 0;
+  function lightUp(titles) {
+    clearTimeout(lightTimer);
+    for (const a of headerActions) a.dice?.classList.toggle('is-lit', titles.includes(a.title));
+    lightTimer = setTimeout(() => {
+      for (const a of headerActions) a.dice?.classList.remove('is-lit');
+    }, 2500);
+  }
+
   return {
     refresh,
+    lightUp,
     setLocked(value) {
       locked = value;
       refresh();

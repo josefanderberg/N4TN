@@ -167,12 +167,9 @@ const RANDOM_DEFAULT_OFF = new Set([
   'motion', 'motionSpeed', 'fov', 'followSlice', 'speed',
   'flipTime', 'steps', 'depth', 'bgRemove',
   'stereo', 'stereoMode', 'stereoAngle',
-  // Materialet och partiklarna byter ut hela scenen, inte bara looken. (Form och
-  // tid rörs inte alls av den stora tärningen, se randomizeParams.)
+  // Materialet byter ut hela scenen, inte bara looken. (Form och tid och
+  // Partiklar rörs inte alls av den stora tärningen, se randomizeParams.)
   'material', 'liquidLevel', 'liquidSoft', 'liquidGloss', 'liquidClarity',
-  'particles', 'particlesVolume', 'particleSize', 'particleForce', 'particleAuto', 'gravity',
-  'gravityStrength', 'particleBounce', 'particleHome', 'particleSwirl', 'particleContainer',
-  'particleBox',
 ]);
 // Slumpens egna spann där reglagets fulla skala mest ger oanvändbara lägen
 // (256 snitt, djup 200, svart exponering …). Övriga slumpas över hela skalan.
@@ -1682,6 +1679,8 @@ const sections = [
   {
     title: 'Partiklar',
     accent: '#7ee0ff',
+    // Har egna knappar i rubriken; den stora tärningen rör den inte.
+    topRandom: false,
     hint: 'Gör om tidskuben till partiklar som kan slungas ut i en behållare.',
     items: [
       { type: 'checkbox', key: 'particles', label: 'Gör om till partiklar',
@@ -1979,12 +1978,12 @@ const sections = [
   {
     title: 'Slumpa',
     accent: '#ffe066',
-    hint: 'Tärningen i toppraden slumpar looken (utom Form och tid). Varje avsnitt har egna knappar i rubriken: 🎲 slumpar avsnittet, ✕ återställer det till standard och ↶ ångrar. Under flikarna finns samma sak för bara fliken du står på. ↶ i toppraden ångrar det senaste, var det än gjordes.',
+    hint: 'Tärningen i toppraden slumpar looken (utom Form och tid och Partiklar), och tärningen i rubriken lyser upp på de avsnitt den ändrade. Varje avsnitt har egna knappar i rubriken: 🎲 slumpar avsnittet, ✕ återställer det till standard och ↶ ångrar. Under flikarna finns samma sak för bara fliken du står på. ↶ i toppraden ångrar det senaste, var det än gjordes.',
     items: [
       { type: 'buttons', buttons: [
         { label: '🎲 Slumpa nu', action: () => randomizeParams() },
       ], disabled: () => state.exporting,
-        info: 'Slumpar alla reglage som har tärningen tänd — samma som tärningen i toppraden. Bygget (bildrutor och upplösning), exporten och Form och tid rörs aldrig, och djupledens tre kryss (visa ögonblicken, följ uppspelningen, loopa) står alltid på efteråt.' },
+        info: 'Slumpar alla reglage som har tärningen tänd — samma som tärningen i toppraden. Bygget (bildrutor och upplösning), exporten, Form och tid och Partiklar rörs aldrig, och djupledens tre kryss (visa ögonblicken, följ uppspelningen, loopa) står alltid på efteråt.' },
       { type: 'checkbox', label: 'Välj vad som får slumpas',
         get: () => ui.randomPick, set: (value) => { ui.randomPick = value; },
         info: 'Visar en tärning intill varje reglage i hela panelen. Tänd tärning = reglaget får slumpas, släckt = det fredas. Valet sparas i webbläsaren. Kamera, rum och de tyngsta valen är släckta från början för den stora tärningen; avsnittens och flikarnas egna tärningar rör dem ändå, men aldrig det du själv har släckt.' },
@@ -2032,22 +2031,31 @@ function randomizeItems(items, eligible, forced = {}, section = null) {
     if (value !== undefined) picked.set(key, value);
   }
   const keys = [...picked.keys(), ...Object.keys(forced)];
-  if (!keys.length) return;
+  if (!keys.length) return [];
   rememberForUndo(keys, section);
+  // De slumpade reglagen som faktiskt fick ett nytt värde.
+  const changed = [...picked].filter(([key, value]) => params[key] !== value).map(([key]) => key);
   for (const [key, value] of picked) params[key] = value;
   Object.assign(params, forced);
   onParamChange('*');
+  return changed;
 }
 
 function randomizeParams() {
-  // Avsnitt med topRandom: false (Form och tid) har sina egna tärningar och
-  // rörs inte av den stora. Djupledens tre kryss står alltid på efter en
-  // slumpning: ögonblicken synliga, uppspelningen följd och loopen igång.
-  randomizeItems(
-    sections.filter((section) => section.topRandom !== false).flatMap((section) => section.items),
+  // Avsnitt med topRandom: false (Form och tid, Partiklar) har sina egna
+  // tärningar och rörs inte av den stora. Djupledens tre kryss står alltid på
+  // efter en slumpning: ögonblicken synliga, uppspelningen följd och loopen igång.
+  const touched = sections.filter((section) => section.topRandom !== false);
+  const changed = new Set(randomizeItems(
+    touched.flatMap((section) => section.items),
     (key) => !RANDOM_EXCLUDED.has(key) && randomOn(key),
     { timeOn: true, timeFollow: true, timeLoop: true },
-  );
+  ));
+  // Tärningen i rubriken lyser upp på de avsnitt som ändrades, så att det syns
+  // vilka som lämnades orörda.
+  panel.lightUp(touched
+    .filter((section) => section.items.some((item) => changed.has(item.key)))
+    .map((section) => section.title));
 }
 
 // Avsnittens och flikarnas egna tärningar. De rör även det som är släckt från
