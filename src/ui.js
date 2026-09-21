@@ -138,11 +138,16 @@ export function buildPanel(root, sections, params, defaults, onChange, random = 
           type: 'button',
           id: b.id,
           class: ['btn', b.primary && 'btn-primary', item.small && 'btn-small'].filter(Boolean).join(' '),
-        }, b.label);
+        });
         button.addEventListener('click', b.action);
         return button;
       }));
-    bindings.push({ item, row, sync: () => {} });
+    // En etikett kan vara en funktion, t.ex. en knapp som växlar mellan Prova och Ångra.
+    const labels = () => item.buttons.forEach((b, i) => {
+      row.children[i].textContent = typeof b.label === 'function' ? b.label() : b.label;
+    });
+    labels();
+    bindings.push({ item, row, sync: labels });
     return row;
   }
 
@@ -255,11 +260,53 @@ export function buildPanel(root, sections, params, defaults, onChange, random = 
     row.append(text);
   }
 
+  const isVisible = (item) => (item.visible ? item.visible(params) : true);
+  const headerDice = [];
+
+  // Tärningen i avsnittets rubrik slumpar hela avsnittet. Den sitter i rubriken
+  // och har avsnittets färg, så det syns vad den hör till.
+  function sectionDice(section, summary) {
+    if (!random?.randomize || !section.items.some((i) => i.key && random.sectionEligible(i.key))) return;
+    const button = el('button', {
+      type: 'button',
+      class: 'sec-rand',
+      title: `Slumpa allt i ${section.title}`,
+      'aria-label': `Slumpa allt i ${section.title}`,
+    }, '🎲');
+    button.addEventListener('click', (e) => {
+      // Knappen sitter i rubriken; utan detta skulle klicket även fälla ihop avsnittet.
+      e.preventDefault();
+      e.stopPropagation();
+      random.randomize(section.items);
+    });
+    summary.append(button);
+    headerDice.push(button);
+  }
+
+  // Under en flikrad: en knapp som bara slumpar fliken som är vald, alltså de
+  // reglage i avsnittet som syns just nu. Den heter efter fliken.
+  function tabDice(section, item) {
+    if (!random?.randomize || item.random === false) return null;
+    const button = el('button', { type: 'button', class: 'tab-rand' });
+    const activeLabel = () => item.tabs.find(([value]) => value === item.get())?.[1] ?? '';
+    button.addEventListener('click', () => {
+      random.randomize(section.items.filter((i) => i !== item && isVisible(i)));
+    });
+    const row = el('div', { class: 'row row-tabrand' }, button);
+    bindings.push({ item: { visible: item.visible }, row, sync: () => {
+      button.textContent = `🎲 Slumpa ${activeLabel()}`;
+      button.title = `Slumpa reglagen under fliken ${activeLabel()}`;
+    } });
+    return row;
+  }
+
   for (const section of sections) {
     // Alla avsnitt är hopfällda från start; det ger överblick i stället för en vägg av reglage.
     const details = el('details', { class: 'sec', open: section.open === true });
     if (section.accent) details.style.setProperty('--sec-accent', section.accent);
-    details.append(el('summary', {}, el('span', { class: 'sec-title' }, section.title)));
+    const summary = el('summary', {}, el('span', { class: 'sec-title' }, section.title));
+    sectionDice(section, summary);
+    details.append(summary);
     const body = el('div', { class: 'sec-body' });
     if (section.hint) body.append(el('p', { class: 'sec-hint' }, section.hint));
     for (const item of section.items) {
@@ -269,6 +316,10 @@ export function buildPanel(root, sections, params, defaults, onChange, random = 
       attachRandom(row, item);
       attachInfo(row, item);
       body.append(row);
+      if (item.type === 'tabs') {
+        const dice = tabDice(section, item);
+        if (dice) body.append(dice);
+      }
     }
     details.append(body);
     root.append(details);
@@ -288,6 +339,7 @@ export function buildPanel(root, sections, params, defaults, onChange, random = 
       // Sist, så att egna kontroller kan styra sitt eget läge utan att skrivas över.
       b.sync(disabled);
     }
+    for (const button of headerDice) button.disabled = locked;
     const picking = !!random?.picking();
     for (const { key, button } of randButtons) {
       button.hidden = !picking;

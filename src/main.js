@@ -1360,6 +1360,54 @@ const HOLOGRAM = {
   xCount: 4, xOpacity: 0.6, prism: 1, prismReach: 0.6, prismSpread: 0.35, prismView: 0.6,
 };
 
+// Snabbval som går att ångra. Första snabbvalet sparar hur reglagen stod innan,
+// och följande snabbval behåller det, så att ångra alltid går tillbaka till läget
+// innan man började prova. Det sparade ligger i webbläsaren, precis som
+// inställningarna, så att ångran finns kvar efter en omladdning.
+function undoable(storageKey) {
+  let saved = null;
+  try {
+    const value = JSON.parse(localStorage.getItem(storageKey) || 'null');
+    if (value && typeof value === 'object') saved = value;
+  } catch {
+    // Utan lagring gäller ångran bara tills sidan laddas om.
+  }
+  const store = (value) => {
+    saved = value;
+    try {
+      if (value) localStorage.setItem(storageKey, JSON.stringify(value));
+      else localStorage.removeItem(storageKey);
+    } catch {
+      // Se ovan.
+    }
+  };
+  return {
+    get active() {
+      return !!saved;
+    },
+    apply(values) {
+      if (!saved) store(Object.fromEntries(Object.keys(values).map((key) => [key, params[key]])));
+      Object.assign(params, values);
+    },
+    undo() {
+      if (saved) Object.assign(params, sanitize(saved));
+      store(null);
+    },
+    forget() {
+      if (saved) store(null);
+    },
+  };
+}
+
+const formUndo = undoable('n4tn.undo.form.v1');
+const hologramUndo = undoable('n4tn.undo.hologram.v1');
+
+function toggleHologram() {
+  if (hologramUndo.active) hologramUndo.undo();
+  else hologramUndo.apply(HOLOGRAM);
+  onParamChange('hologram');
+}
+
 // Ändringar som ger formen en annan storlek; då flyttas kameran så att den ryms.
 const FORM_KEYS = new Set([
   'bend', 'bendCenter', 'bendAxis', 'bendPitch', 'formRound', 'formTwist',
@@ -1470,11 +1518,16 @@ const sections = [
         buttons: Object.entries(FORM_PRESETS).map(([label, values]) => ({
           label,
           action: () => {
-            Object.assign(params, FORM_BASE, values);
+            formUndo.apply({ ...FORM_BASE, ...values });
             onParamChange('form');
           },
         })),
-        info: 'Utgångslägen att skruva vidare på. Låda är den vanliga raka lådan.' },
+        info: 'Utgångslägen att skruva vidare på. Låda är den vanliga raka lådan. Tillbaka till innan lägger tillbaka formen du hade innan du tryckte på det första snabbvalet.' },
+      { type: 'buttons', small: true, visible: () => ui.formTab === 'form' && formUndo.active,
+        buttons: [{ label: 'Tillbaka till innan', action: () => {
+          formUndo.undo();
+          onParamChange('form');
+        } }] },
       { type: 'range', key: 'bend', label: 'Böj runt axel (grader)', min: 0, max: 1080, step: 1,
         visible: onFormTab('form'),
         info: 'Hur många grader klippet täcker runt en axel: 0 är den raka lådan, 360 ett helt varv och upp till 1080 tre varv.' },
@@ -1706,6 +1759,7 @@ const sections = [
         ],
         get: () => ui.waveTab,
         set: (value) => { ui.waveTab = value; },
+        random: false,
         visible: () => ui.sliceTab === 'time' },
       { type: 'range', key: 'wave', label: 'Vågens styrka', min: 0, max: 4, step: 0.01, pane: true,
         visible: () => ui.sliceTab === 'time' && ui.waveTab === 'played',
@@ -1789,11 +1843,11 @@ const sections = [
         info: 'Förskjuter bilden efter hur man tittar, så att den glider när kameran rör sig — det ger hologramkänslan.' },
       { type: 'note', text: 'Prismat syns där ögonblicken möter snitten i sidled och höjdled — slå på båda sorterna.',
         visible: (p) => ui.sliceTab === 'prism' && (!p.timeOn || (p.xCount < 1 && p.yCount < 1)) },
-      { type: 'buttons', buttons: [{ label: 'Prova hologram', action: () => {
-        Object.assign(params, HOLOGRAM);
-        onParamChange('*');
-      } }], visible: () => ui.sliceTab === 'prism',
-        info: 'Ställer in glesa ögonblick och några sidosnitt att börja från.' },
+      { type: 'buttons', buttons: [{
+        label: () => (hologramUndo.active ? 'Ångra hologram' : 'Prova hologram'),
+        action: toggleHologram,
+      }], visible: () => ui.sliceTab === 'prism',
+        info: 'Ställer in glesa ögonblick och några sidosnitt att börja från. Tryck igen (Ångra hologram) så kommer ögonblicken och sidosnitten tillbaka som de var innan.' },
     ],
   },
   {
@@ -1898,7 +1952,7 @@ const sections = [
   {
     title: 'Slumpa',
     accent: '#ffe066',
-    hint: 'Tärningen i toppraden slumpar looken. Här väljer du vad den får röra.',
+    hint: 'Tärningen i toppraden slumpar looken. Tärningen i varje avsnittsrubrik slumpar bara det avsnittet, och knappen under flikarna bara fliken du står på. Ångra i toppraden tar tillbaka en slumpning i taget.',
     items: [
       { type: 'buttons', buttons: [
         { label: '🎲 Slumpa nu', action: () => randomizeParams() },
@@ -1906,7 +1960,7 @@ const sections = [
         info: 'Slumpar alla reglage som har tärningen tänd — samma som tärningen i toppraden. Bygget (bildrutor och upplösning) och exporten rörs aldrig, och djupledens tre kryss (visa ögonblicken, följ uppspelningen, loopa) står alltid på efteråt.' },
       { type: 'checkbox', label: 'Välj vad som får slumpas',
         get: () => ui.randomPick, set: (value) => { ui.randomPick = value; },
-        info: 'Visar en tärning intill varje reglage i hela panelen. Tänd tärning = reglaget får slumpas, släckt = det fredas. Valet sparas i webbläsaren. Kamera, rum och de tyngsta valen är släckta från början.' },
+        info: 'Visar en tärning intill varje reglage i hela panelen. Tänd tärning = reglaget får slumpas, släckt = det fredas. Valet sparas i webbläsaren. Kamera, rum och de tyngsta valen är släckta från början för den stora tärningen; avsnittens och flikarnas egna tärningar rör dem ändå, men aldrig det du själv har släckt.' },
       { type: 'note', text: 'Freda det du redan gillar och slumpa resten. Återställ i toppraden tar dig alltid tillbaka till standard.' },
     ],
   },
@@ -1921,36 +1975,98 @@ const sections = [
 // Slumpar alla reglage vars tärning är tänd. Slumpen läser panelbeskrivningen,
 // så nya reglage är automatiskt med utan egen lista — bara spannet kan behöva
 // en rad i RANDOM_RANGE om hela skalan inte är rimlig att slumpa över.
-function randomizeParams() {
-  if (state.exporting) return;
-  const seen = new Set();
-  for (const section of sections) {
-    for (const item of section.items) {
-      const key = item.key;
-      if (!key || seen.has(key) || RANDOM_EXCLUDED.has(key) || !randomOn(key)) continue;
-      seen.add(key);
-      if (item.type === 'checkbox') {
-        params[key] = Math.random() < 0.5;
-      } else if (item.type === 'select') {
-        params[key] = item.options[Math.floor(Math.random() * item.options.length)][0];
-      } else if (item.type === 'color') {
-        // Mörka rumsfärger, så lådan fortfarande lyser mot bakgrunden.
-        const ch = () => Math.floor(Math.random() * 48).toString(16).padStart(2, '0');
-        params[key] = `#${ch()}${ch()}${ch()}`;
-      } else if (item.type === 'range' || item.type === 'number') {
-        const [lo, hi] = RANDOM_RANGE[key] ?? [item.min, item.max];
-        const step = item.step ?? 0.01;
-        const value = lo + Math.random() * (hi - lo);
-        params[key] = Number((Math.round(value / step) * step).toFixed(4));
-      }
-    }
+function randomValue(item) {
+  const key = item.key;
+  if (item.type === 'checkbox') return Math.random() < 0.5;
+  if (item.type === 'select') return item.options[Math.floor(Math.random() * item.options.length)][0];
+  if (item.type === 'color') {
+    // Mörka rumsfärger, så lådan fortfarande lyser mot bakgrunden.
+    const ch = () => Math.floor(Math.random() * 48).toString(16).padStart(2, '0');
+    return `#${ch()}${ch()}${ch()}`;
   }
+  if (item.type === 'range' || item.type === 'number') {
+    const [lo, hi] = RANDOM_RANGE[key] ?? [item.min, item.max];
+    const step = item.step ?? 0.01;
+    const value = lo + Math.random() * (hi - lo);
+    return Number((Math.round(value / step) * step).toFixed(4));
+  }
+  return undefined;
+}
+
+// Slumpar reglagen i listan som får slumpas, och sparar först deras värden så
+// att slumpningen går att ångra. forced skrivs efter slumpen och ångras också.
+function randomizeItems(items, eligible, forced = {}) {
+  if (state.exporting) return;
+  const picked = new Map();
+  for (const item of items) {
+    const key = item.key;
+    if (!key || picked.has(key) || !eligible(key)) continue;
+    const value = randomValue(item);
+    if (value !== undefined) picked.set(key, value);
+  }
+  const keys = [...picked.keys(), ...Object.keys(forced)];
+  if (!keys.length) return;
+  rememberForUndo(keys);
+  for (const [key, value] of picked) params[key] = value;
+  Object.assign(params, forced);
+  onParamChange('*');
+}
+
+function randomizeParams() {
   // Djupledens tre kryss står alltid på efter en slumpning: ögonblicken
   // synliga, uppspelningen följd och loopen igång.
-  params.timeOn = true;
-  params.timeFollow = true;
-  params.timeLoop = true;
-  onParamChange('*');
+  randomizeItems(
+    sections.flatMap((section) => section.items),
+    (key) => !RANDOM_EXCLUDED.has(key) && randomOn(key),
+    { timeOn: true, timeFollow: true, timeLoop: true },
+  );
+}
+
+// Avsnittens och flikarnas egna tärningar. De rör även det som är släckt från
+// början (annars skulle t.ex. Form och tid inte gå att slumpa alls), men aldrig
+// det man själv har släckt i väljarläget, och inte huvudbrytarna som slår av
+// och på en hel funktion.
+const RANDOM_SECTION_KEEP = new Set(['particles', 'particlesVolume', 'stereo', 'bgRemove']);
+const sectionEligible = (key) =>
+  !RANDOM_EXCLUDED.has(key) && !RANDOM_SECTION_KEEP.has(key) && randomPicks[key] !== false;
+
+function randomizeSection(items) {
+  randomizeItems(items, sectionEligible);
+}
+
+// Slumpningarna ångras ett steg i taget med Ångra i toppraden. Varje steg är
+// värdena som slumpningen skrev över, så det man ändrat för hand efteråt i
+// andra reglage står kvar.
+const randomHistory = [];
+const undoBtn = $('undo-btn');
+
+function rememberForUndo(keys) {
+  randomHistory.push(Object.fromEntries(keys.map((key) => [key, params[key]])));
+  if (randomHistory.length > 30) randomHistory.shift();
+  updateUndoButton();
+}
+
+function undoRandom() {
+  const saved = randomHistory.pop();
+  if (saved) {
+    Object.assign(params, saved);
+    onParamChange('*');
+  }
+  updateUndoButton();
+}
+
+function updateUndoButton() {
+  undoBtn.hidden = !randomHistory.length;
+  undoBtn.title = `Ångra senaste slumpningen (${randomHistory.length} kvar att ångra)`;
+}
+
+// När allt byts ut (en kod, en sparad uppsättning eller Återställ) finns inget
+// kvar att ångra tillbaka till.
+function forgetUndo() {
+  randomHistory.length = 0;
+  updateUndoButton();
+  formUndo.forget();
+  hologramUndo.forget();
 }
 
 
@@ -1985,6 +2101,7 @@ function syncPanel() {
 
 function applyValues(values) {
   Object.assign(params, sanitize(values));
+  forgetUndo();
   onParamChange('*');
 }
 
@@ -2017,9 +2134,12 @@ const panel = buildPanel($('panel'), sections, params, DEFAULTS, onParamChange, 
   eligible: (key) => !RANDOM_EXCLUDED.has(key),
   get: randomOn,
   set: setRandomOn,
+  sectionEligible,
+  randomize: randomizeSection,
 });
 
 $('random-btn').addEventListener('click', randomizeParams);
+undoBtn.addEventListener('click', undoRandom);
 
 // Återställningen kräver två klick, så att inte en felklickning slår ut alla inställningar.
 const resetBtn = $('reset-btn');
@@ -2039,6 +2159,7 @@ resetBtn.addEventListener('click', () => {
   // Antal bildrutor och upplösning behålls, annars måste volymen byggas om.
   const keep = { frames: params.frames, size: params.size };
   Object.assign(params, DEFAULTS, keep);
+  forgetUndo();
   onParamChange('*');
 });
 volume.setDepth(params.depth);

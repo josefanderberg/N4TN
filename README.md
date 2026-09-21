@@ -53,7 +53,7 @@ i toppraden slumpar fram en ny look av de reglage som får slumpas — se gruppe
 | **AI-djup (5D)** | En AI-modell skattar djupet i bildrutorna direkt i webbläsaren, och **Relief** låter ögonblicken bukta mot betraktaren där det är nära. |
 | **Kamera** | Följ ögonblicket, fri musstyrning, pendel eller rotation, hastighet och brännvidd. |
 | **Export** | Bildformat (1:1, 4:5, 9:16, 16:9), bildfrekvens, kvalitet, antal varv och om ljudet ska med. |
-| **Slumpa** | Tärningen 🎲 i toppraden slumpar looken. **Välj vad som får slumpas** visar en tärning intill varje reglage: tänd = får slumpas, släckt = fredas. Bygget och exporten rörs aldrig; kamera, rum och de tyngsta valen är släckta från början. |
+| **Slumpa** | Tärningen 🎲 i toppraden slumpar looken. **Välj vad som får slumpas** visar en tärning intill varje reglage: tänd = får slumpas, släckt = fredas. Bygget och exporten rörs aldrig; kamera, rum och de tyngsta valen är släckta från början. Varje avsnitt har också en egen 🎲 i rubriken som slumpar bara det avsnittet, och under flikarna finns en knapp som slumpar bara fliken du står på (t.ex. **🎲 Slumpa Bana**). De rör även det som är släckt från början, men aldrig det du själv har släckt eller huvudbrytarna för partiklar, stereogram och bakgrundsborttagning. **↶ Ångra** i toppraden tar tillbaka en slumpning i taget. |
 | **Sparade inställningar** | Längst ner: namngivna uppsättningar av alla reglage — spara, hämta tillbaka, ta bort — samt en kort kod för att dela eller flytta en uppsättning. |
 
 ### Formen
@@ -74,6 +74,9 @@ Snabbvalen ger utgångslägen att skruva vidare på:
 * **Boll** — ett halvt varv med axeln mitt i bilden och full rundning. Bollen får bildens
   proportioner, så en 16:9-video ger en tillplattad boll.
 * **Spiral** — tre varv som stiger längs axeln.
+
+Efter ett snabbval dyker **Tillbaka till innan** upp, som lägger tillbaka formen du hade
+innan du tryckte på det första snabbvalet — hur många du än provat däremellan.
 
 Med **Följ ögonblicket** påslaget snurrar en böjd form runt sin axel i stället för att
 kameran åker, så att bildrutan som spelas står still och resten av formen vandrar förbi. Ett
@@ -229,7 +232,8 @@ vänstra framåt. **Styrka** blandar in det, **Räckvidd** är hur långt bilden
 innan den tonar bort, och **Regnbåge** låter färgerna vika olika långt, som ljus genom ett
 prisma. **Följer kameran** förskjuter bilden efter hur man tittar, så att den glider när
 kameran rör sig — det är det som ger hologramkänslan. **Prova hologram** ställer in glesa
-ögonblick och några sidosnitt att börja från. Prismat fungerar också i de fria formerna.
+ögonblick och några sidosnitt att börja från; knappen blir sedan **Ångra hologram**, som
+lägger tillbaka ögonblicken och sidosnitten som de var innan. Prismat fungerar också i de fria formerna.
 
 ### Special
 
