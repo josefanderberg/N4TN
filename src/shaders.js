@@ -50,14 +50,28 @@ uniform float uTimeDir;
 uniform int uContent;
 uniform float uFrameStep;
 uniform float uMotionGain;
+// Självlysande dimma där det rör sig i klippet, oavsett innehållsläge.
+uniform float uMotionMist;
 // 0 = genomskinlig (medelvärde), 1 = adderande, 2 = maxljus
 uniform int uBlend;
 uniform float uDensity;
 uniform float uAutoGain;
 uniform float uLumWeight;
+// Varje sida av lådan har sin egen ytstyrka.
 uniform float uShellFront;
 uniform float uShellBack;
+uniform float uShellLeft;
+uniform float uShellRight;
+uniform float uShellTop;
+uniform float uShellBottom;
+// Tratten: fram- och baksidans storlek (normerade så att den större är 1).
+// Tvärsnittet i x/y skalas med w(z) = mix(uSizeBack, uSizeFront, z + 0.5).
+uniform float uSizeFront;
+uniform float uSizeBack;
 uniform float uBrightness;
+// Exponeringsfönstret: botten kapar det mörka, taket det ljusa.
+uniform float uExpFloor;
+uniform float uExpCeil;
 uniform float uSaturation;
 uniform float uGlass;
 uniform float uEdgeGlow;
@@ -67,12 +81,34 @@ uniform float uIso;
 uniform float uSoft;
 uniform float uGloss;
 uniform float uClarity;
+// Bakgrunden: tidsmedianen av klippet. Med borttagningen på jämförs varje
+// punkt mot den, och det som står stilla släcks så att motivet svävar fritt.
+uniform sampler2D uBgTex;
+uniform float uBgRemove;
+uniform float uBgThreshold;
+// Färg efter tid: varje ögonblick tonas efter var i klippet det hör hemma.
+uniform float uTimeTint;
+// AI-djupet: skattad närhet per bildruta (1 = nära kameran). Reliefen buktar
+// ögonblicken mot betraktaren där det är nära.
+uniform sampler3D uDepthVol;
+uniform float uDepthOn;
+uniform float uRelief;
 
 // Varje riktning har ett snitt vid sin position plus fler med jämnt mellanrum 1 / antal.
 uniform float uTimeCount;
+// Loopläget: klippet rullar cykliskt genom lådan medan snitten står still.
+// uTimeAnchor är var i lådan den spelade bildrutan ligger (0 fram, 1 bak).
+uniform float uTimeLoop;
+uniform float uTimeAnchor;
+// Hur stor del av klippet som blandas över skarven i loopläget.
+uniform float uSeamBlend;
 uniform float uTimePos;
 uniform float uTimeOpacity;
-uniform float uTimeFade;
+uniform float uTimeRestOpacity;
+uniform float uTimeFullOpacity;
+// Trappsteget: hur mycket varje fullt ögonblick tappar i opacitet för varje
+// steg bort från den spelade bildrutan. 0 = alla lika starka.
+uniform float uTimeGradient;
 uniform float uTimeFull;
 uniform float uTimeCurve;
 uniform float uSharpTol;
@@ -82,13 +118,23 @@ uniform float uEdgeFade;
 uniform float uSliceWave;
 uniform float uSliceWaveWidth;
 uniform float uTilt;
+// Höjdledslutningen: ögonblicken lutar fram och bak med kamerans elevation.
+uniform float uTiltV;
+// Snittens egen bredd i världsmått: vid vridning är lådan smalare än snitten
+// är breda, så bredden kan inte läsas ur uScale.x.
+uniform float uSliceW;
+uniform float uSliceH;
 uniform float uXCount;
+// Solfjädern: sidosnitten går genom lådans mittaxel i stället för rakt igenom.
+uniform float uXFan;
+// Var i djupled solfjäderns axel står (0 fram, 0,5 mitten, 1 bak).
+uniform float uXFanCenter;
 uniform float uXPos;
 uniform float uYCount;
 uniform float uXOpacity;
 uniform float uYPos;
 uniform float uYOpacity;
-// Prisma: djupsnittens bilder viker över på snitten i sidled och höjdled.
+// Prisma: ögonblickens bilder viker över på snitten i sidled och höjdled.
 uniform float uPrism;
 uniform float uPrismReach;
 uniform float uPrismSpread;
@@ -135,6 +181,7 @@ uniform float uPathFreq;
 uniform float uPathPhase;
 uniform float uSeed;
 
+
 #define MAX_STEPS 640
 #define MAX_SLICES_PER_STEP 12
 
@@ -143,13 +190,89 @@ const float TAU = 6.28318531;
 
 float luma(vec3 c) { return dot(c, vec3(0.2126, 0.7152, 0.0722)); }
 
+// Bildens skala på ett givet djup.
+float taperAt(float z) { return mix(uSizeBack, uSizeFront, z + 0.5); }
+
+// Från trattens rum till enhetskuben: bilden fyller varje tvärsnitt, så den
+// växer och krymper med formen genom lådan.
+vec3 unwarp(vec3 p) {
+  float w = taperAt(p.z);
+  return vec3(p.xy / w, p.z);
+}
+
+// Tid (0..1) för en punkt; framsidan (z = +0.5) är start som standard.
+// I loopläget rullar tiden cykliskt: lådans plats mäts från ankaret och
+// läggs på uppspelningen, så det som spelats förbi kommer in längst bak.
+float timeAt(vec3 p) {
+  float b = 0.5 - uTimeDir * p.z;
+  if (uTimeLoop > 0.5) return fract(uTimePos + b - uTimeAnchor);
+  return b;
+}
+
+// Avstånd i tid från uppspelningen; cykliskt i loopläget, så att vågen
+// följer med runt skarven.
+float timeDelta(float t) {
+  float d = t - uTimePos;
+  if (uTimeLoop > 0.5) d = fract(d + 0.5) - 0.5;
+  return d;
+}
+
+vec3 volTex(vec2 xy, float t) {
+  return textureLod(uVolume, vec3(xy, t), 0.0).rgb;
+}
+
+// Skarven i loopläget: där klippets slut möter dess början vandrar en brytning
+// genom lådan. Nära skarven blandas andra sidan in (texturen klampar t utanför
+// 0..1 till första/sista bildrutan), så flödet blir sömlöst.
+vec3 volTexLoop(vec2 xy, float t) {
+  if (uTimeLoop < 0.5 || uSeamBlend <= 0.001) return volTex(xy, t);
+  float w = uSeamBlend;
+  if (t < w) return mix(volTex(xy, t), volTex(xy, t + 1.0), 0.5 * (1.0 - t / w));
+  if (t > 1.0 - w) return mix(volTex(xy, t), volTex(xy, t - 1.0), 0.5 * (1.0 - (1.0 - t) / w));
+  return volTex(xy, t);
+}
+
+vec3 volumeAt(vec3 p, float offset) {
+  vec3 u = unwarp(p);
+  return volTexLoop(vec2(u.x + 0.5, 0.5 - u.y), timeAt(p) + offset);
+}
+
+// Andelen förgrund: hur mycket en punkt skiljer sig från bakgrundsbilden,
+// som är tidsmedianen av hela klippet. Det som står stilla hamnar nära 0.
+float fgMask(vec3 c, vec2 xy) {
+  float d = distance(c, texture(uBgTex, xy).rgb);
+  return smoothstep(uBgThreshold * 0.5, uBgThreshold, d);
+}
+
+// Senaste förgrundsandelen från sampleVol, så att även täckningen kan dämpas
+// där bakgrunden togs bort (annars blir det svarta partiet ett mörkt dis).
+float gFg = 1.0;
+
 // I läget Rörelse visas skillnaden mot nästa bildruta, så stillastående bakgrund
 // blir svart och bara det som rör sig syns inne i lådan.
-vec3 sampleUVT(vec3 uvt) {
-  vec3 c = textureLod(uVolume, uvt, 0.0).rgb;
-  if (uContent == 1) return abs(textureLod(uVolume, uvt + vec3(0.0, 0.0, uFrameStep), 0.0).rgb - c) * uMotionGain;
-  return c;
+vec3 sampleVol(vec3 p) {
+  gFg = 1.0;
+  vec3 u = unwarp(p);
+  vec2 xy = vec2(u.x + 0.5, 0.5 - u.y);
+  float t = timeAt(p);
+  vec3 raw = volTexLoop(xy, t);
+  vec3 c = raw;
+  if (uBgRemove > 0.5 && uContent != 1) {
+    gFg = fgMask(raw, xy);
+    c *= gFg;
+  }
+  if (uContent == 0) return c;
+  // Rörelsen räknas på råbilderna: bakgrunden tar ut sig själv i skillnaden.
+  vec3 motion = abs(volTexLoop(xy, t + uFrameStep) - raw) * uMotionGain;
+  // 2 = bild och rörelse ihop: bilden i botten, rörelsebanorna lyser ovanpå.
+  return uContent == 1 ? motion : c + motion;
 }
+
+// I rena bildläget ska borttagen bakgrund även släppa igenom det bakom;
+// i rörelselägena bär rörelsen täckningen och lämnas orörd.
+float fgAlpha() { return uContent == 0 ? gFg : 1.0; }
+
+float filledAt(vec3 p) { return step(timeAt(p), uFilled); }
 
 // Klippets början och slut kan tonas in och ut mot lådans fram- och bakkant.
 float edgeAtTime(float t) {
@@ -157,10 +280,16 @@ float edgeAtTime(float t) {
   return smoothstep(0.0, uEdgeFade, t) * smoothstep(0.0, uEdgeFade, 1.0 - t);
 }
 
+// Toningen ligger vid lådans fram- och bakkant. Utanför loopläget är det
+// samma sak som klippets början och slut, men i loopläget möts klippets
+// ändar inne i lådan (skarven) — en toning där skulle gräva ett vandrande
+// mörkt band som Mjuka skarven aldrig kan ta bort.
+float edgeAt(vec3 p) { return edgeAtTime(0.5 - uTimeDir * p.z); }
+
 // Egen våg för djupsnitten, skild från vågen som gäller volymen och ytorna.
 float sliceWaveAt(float sliceTime) {
   if (uSliceWave <= 0.001) return 1.0;
-  float d = (sliceTime - uTimePos) / max(uSliceWaveWidth, 0.001);
+  float d = timeDelta(sliceTime) / max(uSliceWaveWidth, 0.001);
   return max(0.0, mix(1.0, exp(-d * d * 4.0), uSliceWave));
 }
 
@@ -170,17 +299,109 @@ float sliceWaveAt(float sliceTime) {
 // så att bara ett smalt fönster kring den spelande bildrutan blir kvar.
 float waveAtTime(float t) {
   if (uWave <= 0.001) return 1.0;
-  float d = (t - uTimePos) / max(uWaveWidth, 0.001);
+  float d = timeDelta(t) / max(uWaveWidth, 0.001);
   return max(0.0, mix(1.0, exp(-d * d * 4.0), uWave));
 }
 
-vec3 grade(vec3 c) {
+float waveAt(vec3 p) { return waveAtTime(timeAt(p)); }
+
+// Exponeringsfönstret: allt under botten blir svart, allt över taket slår i
+// taket, och spannet däremellan dras ut till full skala. Med botten 0 och
+// tak 1 lämnas ljuset orört (även värden över 1 i rörelseläget).
+// expAmount är hur mycket av fönstret som får verka: bildrutan som spelas och
+// de fulla ögonblicken lämnas orörda (0), allt annat kläms fullt ut (1).
+vec3 gradeExp(vec3 c, float expAmount) {
+  if ((uExpFloor > 0.001 || uExpCeil < 0.999) && expAmount > 0.001) {
+    vec3 w = clamp((c - uExpFloor) / max(uExpCeil - uExpFloor, 0.01), 0.0, 1.0);
+    c = mix(c, w, expAmount);
+  }
   c = mix(vec3(luma(c)), c, uSaturation);
   return c * uBrightness;
 }
 
+vec3 grade(vec3 c) { return gradeExp(c, 1.0); }
+
+// Klipper strålen mot planet n·p = d; utsidan är där n·p > d.
+void clipPlane(vec3 o, vec3 d, vec3 n, float dist, inout float t0, inout float t1) {
+  float fo = dot(n, o) - dist;
+  float fd = dot(n, d);
+  if (abs(fd) < 1e-9) {
+    if (fo > 0.0) t1 = -1e9;
+    return;
+  }
+  float t = -fo / fd;
+  if (fd > 0.0) t1 = min(t1, t);
+  else t0 = max(t0, t);
+}
+
+// Tratten är fram- och baksidans plan plus fyra lutande sidoplan |x| och
+// |y| = 0.5·w(z), i stället för det raka slab-paret för en låda.
+vec2 hitBox(vec3 o, vec3 d) {
+  float t0 = -1e9;
+  float t1 = 1e9;
+  float hm = 0.5 * (uSizeFront - uSizeBack);
+  float hc = 0.25 * (uSizeFront + uSizeBack);
+  clipPlane(o, d, vec3(0.0, 0.0, 1.0), 0.5, t0, t1);
+  clipPlane(o, d, vec3(0.0, 0.0, -1.0), 0.5, t0, t1);
+  clipPlane(o, d, vec3(1.0, 0.0, -hm), hc, t0, t1);
+  clipPlane(o, d, vec3(-1.0, 0.0, -hm), hc, t0, t1);
+  clipPlane(o, d, vec3(0.0, 1.0, -hm), hc, t0, t1);
+  clipPlane(o, d, vec3(0.0, -1.0, -hm), hc, t0, t1);
+  return vec2(t0, t1);
+}
+
+// Ytnormal och axelmask för en punkt på trattens yta. Sidorna lutar med
+// trattens vinkel; masken säger vilken axel ytan hör till, för kantglöden
+// och för valet av sidans egen ytstyrka.
+void surfInfo(vec3 p, out vec3 n, out vec3 axisMask) {
+  vec3 a = abs(unwarp(p));
+  float hm = 0.5 * (uSizeFront - uSizeBack);
+  if (a.x >= a.y && a.x >= a.z) {
+    n = vec3(sign(p.x), 0.0, -hm);
+    axisMask = vec3(1.0, 0.0, 0.0);
+  } else if (a.y >= a.z) {
+    n = vec3(0.0, sign(p.y), -hm);
+    axisMask = vec3(0.0, 1.0, 0.0);
+  } else {
+    n = vec3(0.0, 0.0, sign(p.z));
+    axisMask = vec3(0.0, 0.0, 1.0);
+  }
+  // Skalningen är olika per axel, så normalen följer med som n / uScale.
+  n = normalize(n / uScale);
+}
+
+// Ytstyrkan för lådans fasta sidor: fram/bak är kortsidorna av tiden,
+// vänster/höger och tak/botten är de utsmetade bildkanterna.
+float shellFor(vec3 axisMask, vec3 p) {
+  if (axisMask.z > 0.5) return p.z > 0.0 ? uShellFront : uShellBack;
+  if (axisMask.x > 0.5) return p.x > 0.0 ? uShellRight : uShellLeft;
+  return p.y > 0.0 ? uShellTop : uShellBottom;
+}
+
+// Avstånd (i världsenheter) från en punkt på en sida till sidans närmaste kant.
+float edgeDist(vec3 p, vec3 axisMask) {
+  float w = taperAt(p.z);
+  vec3 q = (0.5 - abs(unwarp(p))) * uScale * vec3(w, w, 1.0) + axisMask * 1e3;
+  return min(q.x, min(q.y, q.z));
+}
+
 vec3 spectrum(float x) {
   return 0.5 + 0.5 * cos(6.28318 * (x + vec3(0.0, 0.33, 0.67)));
+}
+
+// Färg efter tid: ögonblickets plats i klippet blir en färg ur spektrat,
+// med bevarad ljushet så att svart förblir svart. I loopläget går skalan
+// hela varvet runt, så att skarven inte byter färg; annars stannar den vid
+// blått i stället för att sluta där den började.
+vec3 tintByTime(vec3 c, float t) {
+  if (uTimeTint <= 0.001) return c;
+  vec3 hue = spectrum(uTimeLoop > 0.5 ? t : t * 0.72);
+  return mix(c, luma(c) * 1.9 * hue, uTimeTint);
+}
+
+// Volymens färdiga färg i en punkt: innehåll, exponering och tidsfärg ihop.
+vec3 shadeVol(vec3 p) {
+  return tintByTime(grade(sampleVol(p)), timeAt(p));
 }
 
 float hash12(vec2 p) {
@@ -197,34 +418,117 @@ void over(inout vec3 col, inout float acc, vec3 c, float a) {
 // Ytorna syns starkt i sned vinkel och nästan inte alls rakt framifrån, som glas.
 float grazing(float fres) { return 0.12 + 0.88 * pow(fres, 1.5); }
 
-// Tidssnitten ligger på uTimePos + k / uTimeCount. Snittet som spelas är k = 0 och
-// har full styrka; varje steg därifrån dämpas med samma faktor.
-// Snitten med full styrka ligger utspridda över hela stacken: ett vid
-// uppspelningen och sedan var n:te snitt åt båda håll. Mellan dem sjunker en båge
-// ner till uTimeFade och stiger upp igen mot nästa topp.
-// uTimeFull toppar jämnt fördelade över stacken, alla lika starka, var och en
-// med en båge före och efter sig. Räknas på snittets nummer, så att den håller
-// även när snitten är vridna och en punkt inte längre har en enda tid.
-float sliceFade(float sliceIndex) {
-  if (uTimeFade <= 0.001) return 1.0;
+// Tidssnitten ligger på uTimePos + k / uTimeCount. uTimeFull toppar med full
+// styrka ligger jämnt fördelade över stacken: en vid uppspelningen (k = 0) och
+// sedan var n:te snitt åt båda håll. Topparna har uTimeOpacity, dalarna
+// däremellan bottnar på uTimeRestOpacity, och bågen mellan de två nivåerna
+// formas av uTimeCurve. Räknas på snittets nummer, så att den håller även när
+// snitten är vridna och en punkt inte längre har en enda tid.
+// Hur fullt ett snitt är: 1 vid topparna (den spelade bildrutan och de fulla
+// ögonblicken), 0 i dalarna emellan. Styr både opacitetsrampen och hur mycket
+// exponeringsfönstret får klämma snittet.
+float sliceArc(float sliceIndex) {
   float phase = sliceIndex * uTimeFull / max(uTimeCount, 1.0);
   float toNearest = abs(phase - floor(phase + 0.5));
-  float arc = pow(0.5 + 0.5 * cos(6.2831853 * toNearest), uTimeCurve);
-  return 1.0 - uTimeFade * (1.0 - arc);
+  return pow(0.5 + 0.5 * cos(6.2831853 * toNearest), uTimeCurve);
+}
+
+float sliceAlpha(float sliceIndex) {
+  float phase = sliceIndex * uTimeFull / max(uTimeCount, 1.0);
+  float nearest = floor(phase + 0.5);
+  float arc = sliceArc(sliceIndex);
+  // Bildrutan som spelas är klarast. Övriga fulla ögonblick börjar på sin
+  // egen nivå och tappar ett trappsteg för varje steg bort från den spelade
+  // (0,9 → 0,8 → 0,7 …), så att det längst bort visas svagast. nearest är
+  // vilket fullt ögonblick i ordningen punkten hör till.
+  float rank = abs(nearest);
+  float peak = rank < 0.5
+    ? uTimeOpacity
+    : max(uTimeFullOpacity - (rank - 1.0) * uTimeGradient, 0.0);
+  return mix(uTimeRestOpacity, peak, arc);
+}
+
+// Första snittplanet som strålen korsar i [tA, tB), annars -1.
+// Planen ligger på t = A + k * B för heltal k, så det räcker med att avrunda uppåt.
+float nextSlice(float tA, float tB, float A, float B) {
+  if (B <= 0.0) return -1.0;
+  float t = A + ceil((tA - A) / B) * B;
+  return t < tB ? t : -1.0;
+}
+
+// Samma sak för sid- och höjdsnitten, som följer tratten: i trattens rum ligger
+// de vid A + k · B, och koordinaten ax / w(z) är monoton längs strålen, så det
+// räcker att gå till närmaste plan i färdriktningen och lösa ut t ur planet
+// ax = v · w(z), som är rakt fast lutande.
+float nextWallSlice(float tA, float tB, float axO, float axD, float oz, float dz, float A, float B) {
+  if (B <= 0.0) return -1.0;
+  float qA = (axO + tA * axD) / taperAt(oz + tA * dz);
+  float qB = (axO + tB * axD) / taperAt(oz + tB * dz);
+  if (qA == qB) return -1.0;
+  float v = qB > qA
+    ? A + ceil((qA - A) / B) * B
+    : A + floor((qA - A) / B) * B;
+  float den = axD - v * (uSizeFront - uSizeBack) * dz;
+  if (abs(den) < 1e-7) return -1.0;
+  float t = (v * taperAt(oz) - axO) / den;
+  return (t >= tA && t < tB) ? t : -1.0;
+}
+
+// Solfjäderns nästa blad längs strålen. Bladen är plan genom mittaxeln,
+// jämnt spridda i vinkel (A + k·B), och vinkeln sedd från axeln är monoton
+// längs en rak stråle, så det räcker att kliva mot nästa bladvinkel i
+// färdriktningen och lösa ut t ur planet.
+float fanNext(float tA, float tB, vec3 o, vec3 d, float A, float B) {
+  if (B <= 0.0) return -1.0;
+  float z0 = (0.5 - uXFanCenter) * uScale.z;
+  float qA = atan((o.x + tA * d.x) * uScale.x, (o.z + tA * d.z) * uScale.z - z0);
+  float qB = atan((o.x + tB * d.x) * uScale.x, (o.z + tB * d.z) * uScale.z - z0);
+  float dq = qB - qA;
+  if (dq > 3.14159265) dq -= 6.2831853;
+  if (dq < -3.14159265) dq += 6.2831853;
+  float v = dq > 0.0
+    ? A + ceil((qA - A) / B) * B
+    : A + floor((qA - A) / B) * B;
+  if (abs(v - qA) > abs(dq)) return -1.0;
+  float cv = cos(v);
+  float sv = sin(v);
+  float f0 = cv * o.x * uScale.x - sv * (o.z * uScale.z - z0);
+  float fd = cv * d.x * uScale.x - sv * d.z * uScale.z;
+  if (abs(fd) < 1e-7) return -1.0;
+  float t = -f0 / fd;
+  return (t >= tA && t < tB) ? t : -1.0;
+}
+
+// --- Gemensamt för lådan och formen -----------------------------------------
+
+// Innehållet i en punkt given som (x, y, tid) i volymen; samma som sampleVol.
+vec3 sampleUVT(vec3 uvt) {
+  gFg = 1.0;
+  vec3 raw = volTexLoop(uvt.xy, uvt.z);
+  vec3 c = raw;
+  if (uBgRemove > 0.5 && uContent != 1) {
+    gFg = fgMask(raw, uvt.xy);
+    c *= gFg;
+  }
+  if (uContent == 0) return c;
+  vec3 motion = abs(volTexLoop(uvt.xy, uvt.z + uFrameStep) - raw) * uMotionGain;
+  return uContent == 1 ? motion : c + motion;
 }
 
 // Bilden i djupsnittet k, som har tiden tk, vid uv (0..1, uppåt positivt).
 // Snittet som spelas visas skarpt ur videon.
 vec3 sliceImage(float k, float tk, vec2 uv) {
-  if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0 || tk < 0.0 || tk > 1.0) return vec3(0.0);
+  if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0) return vec3(0.0);
+  if (uTimeLoop > 0.5) tk = fract(tk);
+  else if (tk < 0.0 || tk > 1.0) return vec3(0.0);
   if (uHasVideo > 0.5 && abs(k) < 0.5) return texture(uVideo, uv).rgb;
-  return textureLod(uVolume, vec3(uv.x, 1.0 - uv.y, tk), 0.0).rgb;
+  return volTexLoop(vec2(uv.x, 1.0 - uv.y), tk);
 }
 
-// Prisma: där djupsnitten möter ett sidosnitt viker deras bilder över på det,
+// Prisma: där ögonblicken möter ett sidosnitt viker deras bilder över på det,
 // som om varje bildruta böjdes runt hörnet. Färgerna viker olika långt, som
 // ljus genom ett prisma, och bilden glider när kameran rör sig, som i ett
-// hologram. s är punktens läge räknat i djupsnitt (heltal = på ett snitt) och
+// hologram. s är punktens läge räknat i ögonblick (heltal = på ett snitt) och
 // tiden för snitt k är uTimePos + timeSign * k / antal. gap är avståndet mellan
 // snitten och fold riktningen i bilden som viks över, båda i världsenheter.
 vec3 prismColor(float s, float timeSign, float gap, vec2 uv, vec2 fold, vec2 imgSize, float view) {
@@ -253,21 +557,23 @@ void smoke(vec3 s, float k, float len, inout vec3 col, inout float acc, inout ve
   if (uBlend == 0) {
     over(col, acc, s, 1.0 - exp(-uDensity * k * len));
   } else if (uBlend == 1) {
-    // Allt längs strålen lyser ihop, så mitten fylls i stället för att bli ett medelvärde.
-    // Automatisk exponering gäller bilden; i rörelseläget styr rörelsekänsligheten.
-    float gain = uContent == 0 ? uAutoGain : 1.0;
+    float gain = uContent != 1 ? uAutoGain : 1.0;
     extra += (1.0 - acc) * s * k * uDensity * gain * len;
   } else {
-    // Det ljusaste längs strålen vinner, vilket lyfter fram innehållet i mitten.
     extra = max(extra, s * k * (1.0 - acc));
   }
 }
 
-vec4 finish(vec3 col, float acc, vec3 extra, vec3 glass) {
+vec4 finish(vec3 col, float acc, vec3 extra, vec3 glass, vec3 mist) {
   // Adderande läge rullar av mjukt i toppen, annars bränns ljusa klipp ut till vitt.
   if (uBlend == 1) extra = 1.0 - exp(-extra);
-  col += extra + glass;
-  return vec4(col, clamp(acc + luma(extra) + luma(glass), 0.0, 1.0));
+  mist = 1.0 - exp(-mist);
+  col += extra + glass + mist;
+  return vec4(col, clamp(acc + luma(extra) + luma(glass) + luma(mist), 0.0, 1.0));
+}
+
+vec3 glassTint(float fres, vec3 p) {
+  return vec3(0.78, 0.9, 1.0) * 0.35 + spectrum(fres * 1.3 + dot(p, vec3(0.6, 0.9, 0.4))) * 0.12;
 }
 
 // --- Vätska ------------------------------------------------------------------
@@ -275,10 +581,13 @@ vec4 finish(vec3 col, float acc, vec3 extra, vec3 glass) {
 // ur en suddigare mipnivå av volymen, så att ytan blir mjuk i stället för brusig.
 
 vec4 liquidUVT(vec3 uvt) {
-  vec3 c = textureLod(uVolume, uvt, uSoft).rgb;
-  if (uContent == 1) {
+  vec3 raw = textureLod(uVolume, uvt, uSoft).rgb;
+  vec3 c = raw;
+  if (uBgRemove > 0.5 && uContent != 1) c *= fgMask(raw, uvt.xy);
+  if (uContent != 0) {
     float dt = uFrameStep * exp2(uSoft);
-    c = abs(textureLod(uVolume, uvt + vec3(0.0, 0.0, dt), uSoft).rgb - c) * uMotionGain;
+    vec3 motion = abs(textureLod(uVolume, uvt + vec3(0.0, 0.0, dt), uSoft).rgb - raw) * uMotionGain;
+    c = uContent == 1 ? motion : c + motion;
   }
   c = grade(c);
   return vec4(c, luma(c));
@@ -319,60 +628,25 @@ void liquidBody(vec3 base, float len, inout vec3 col, inout float acc) {
   over(col, acc, base * 0.7, 1.0 - exp(-(1.0 - uClarity) * thick * len));
 }
 
-vec3 glassTint(float fres, vec3 p) {
-  return vec3(0.78, 0.9, 1.0) * 0.35 + spectrum(fres * 1.3 + dot(p, vec3(0.6, 0.9, 0.4))) * 0.12;
-}
+// --- Lådans prisma och vätska ------------------------------------------------
 
-#ifndef FORM
-
-// Tid (0..1) för en punkt; framsidan (z = +0.5) är start som standard.
-float timeAt(vec3 p) { return 0.5 - uTimeDir * p.z; }
-
-vec3 sampleVol(vec3 p) { return sampleUVT(vec3(p.x + 0.5, 0.5 - p.y, timeAt(p))); }
-
-float filledAt(vec3 p) { return step(timeAt(p), uFilled); }
-
-float edgeAt(vec3 p) { return edgeAtTime(timeAt(p)); }
-
-float waveAt(vec3 p) { return waveAtTime(timeAt(p)); }
-
-vec2 hitBox(vec3 o, vec3 d) {
-  vec3 inv = 1.0 / d;
-  vec3 t0 = (vec3(-0.5) - o) * inv;
-  vec3 t1 = (vec3(0.5) - o) * inv;
-  vec3 tmin = min(t0, t1);
-  vec3 tmax = max(t0, t1);
-  return vec2(max(max(tmin.x, tmin.y), tmin.z), min(min(tmax.x, tmax.y), tmax.z));
-}
-
-vec3 faceNormal(vec3 p) {
-  vec3 a = abs(p);
-  if (a.x >= a.y && a.x >= a.z) return vec3(sign(p.x), 0.0, 0.0);
-  if (a.y >= a.z) return vec3(0.0, sign(p.y), 0.0);
-  return vec3(0.0, 0.0, sign(p.z));
-}
-
-// Avstånd (i världsenheter) från en punkt på en sida till sidans närmaste kant.
-float edgeDist(vec3 p, vec3 n) {
-  vec3 q = (0.5 - abs(p)) * uScale + abs(n) * 1e3;
-  return min(q.x, min(q.y, q.z));
-}
-
-// Färgen på ett snitt i sidled eller höjdled, med prismat om det är på.
-vec3 boxSideColor(vec3 p, vec2 fold, vec3 tiltN, vec3 tiltR, float cZero, float cStep, vec3 rdW) {
-  vec3 c = grade(sampleVol(p));
-  if (uPrism <= 0.0 || uTimeCount < 0.5) return c;
+// Ett snitt i sidled eller höjdled med prismat inblandat, om det är på.
+vec3 boxSideColor(vec3 p, vec3 c, vec2 fold, vec3 tiltN, vec3 tiltR, vec3 tiltU,
+    float cZero, float cStep, vec3 rdW) {
+  if (uPrism <= 0.0 || uTimeCount < 0.5 || abs(cStep) < 1e-6) return c;
   float s = (dot(tiltN, p * uScale) - cZero) / cStep;
-  vec2 uv = vec2(dot(p * uScale, tiltR) / uScale.x + 0.5, p.y + 0.5);
-  vec3 prism = prismColor(s, -uTimeDir, abs(cStep), uv, fold, uScale.xy, rdW.z);
-  return mix(c, grade(prism), uPrism);
+  vec2 size = vec2(uSliceW, uSliceH) * taperAt(p.z);
+  vec2 uv = vec2(dot(p * uScale, tiltR), dot(p * uScale, tiltU)) / size + 0.5;
+  vec3 prism = prismColor(s, -uTimeDir, abs(cStep), uv, fold, size, rdW.z);
+  return mix(c, tintByTime(grade(prism), timeAt(p)), uPrism);
 }
 
 // Vätskans nivå i lådan. Utanför lådan är den 0, så att lådans väggar blir
 // vätskans kant där den är full.
 float boxField(vec3 p) {
-  if (any(greaterThan(abs(p), vec3(0.4999)))) return 0.0;
-  return liquidUVT(vec3(p.x + 0.5, 0.5 - p.y, timeAt(p))).a * waveAt(p) * edgeAt(p) * filledAt(p);
+  vec3 w = unwarp(p);
+  if (any(greaterThan(abs(w), vec3(0.4999)))) return 0.0;
+  return liquidUVT(vec3(w.x + 0.5, 0.5 - w.y, timeAt(p))).a * waveAt(p) * edgeAt(p) * filledAt(p);
 }
 
 // Ytan mellan ta och tb, där nivån passerar uIso. Normalen tas ur nivåns lutning.
@@ -390,17 +664,11 @@ void boxLiquidSurface(vec3 rd, vec3 rdW, float ta, float tb, bool entering,
     boxField(p + vec3(0.0, e.y, 0.0)) - boxField(p - vec3(0.0, e.y, 0.0)),
     boxField(p + vec3(0.0, 0.0, e.z)) - boxField(p - vec3(0.0, 0.0, e.z)));
   vec3 n = -normalize(g + vec3(0.0, 1e-7, 0.0));
-  vec4 lit = shadeLiquid(entering ? n : -n, rdW, grade(sampleVol(p)));
+  vec4 lit = shadeLiquid(entering ? n : -n, rdW, shadeVol(p));
   over(col, acc, lit.rgb, lit.a * (entering ? 1.0 : 0.5));
 }
 
-// Första snittplanet som strålen korsar i [tA, tB), annars -1.
-// Planen ligger på t = A + k * B för heltal k, så det räcker med att avrunda uppåt.
-float nextSlice(float tA, float tB, float A, float B) {
-  if (B <= 0.0) return -1.0;
-  float t = A + ceil((tA - A) / B) * B;
-  return t < tB ? t : -1.0;
-}
+#ifndef FORM
 
 void main() {
   vec3 rd = normalize(vDirection);
@@ -414,46 +682,56 @@ void main() {
 
   vec3 pIn = vOrigin + rd * b.x;
   vec3 pOut = vOrigin + rd * b.y;
-  vec3 nIn = faceNormal(pIn);
-  vec3 nOut = faceNormal(pOut);
+  vec3 nIn;
+  vec3 maskIn;
+  surfInfo(pIn, nIn, maskIn);
+  vec3 nOut;
+  vec3 maskOut;
+  surfInfo(pOut, nOut, maskOut);
 
   vec3 col = vec3(0.0);
   float acc = 0.0;
   vec3 glass = vec3(0.0);
   vec3 extra = vec3(0.0);
+  vec3 mist = vec3(0.0);
 
   // Framsidans glasyta: fresnel-reflex, lätt regnbågsskimmer och kantglöd.
   float fresIn = 1.0 - abs(dot(nIn, rdW));
   if (outside) {
     float f = fresIn * fresIn * fresIn * fresIn;
-    glass += glassTint(fresIn, pIn) * f * uGlass;
-    glass += vec3(0.85, 0.95, 1.0) * exp(-edgeDist(pIn, nIn) * 28.0) * uEdgeGlow * 0.5;
-    over(col, acc, grade(sampleVol(pIn)),
-      uShellFront * grazing(fresIn) * filledAt(pIn) * waveAt(pIn) * edgeAt(pIn));
+    vec3 tint = vec3(0.78, 0.9, 1.0) * 0.35 + spectrum(fresIn * 1.3 + dot(pIn, vec3(0.6, 0.9, 0.4))) * 0.12;
+    glass += tint * f * uGlass;
+    glass += vec3(0.85, 0.95, 1.0) * exp(-edgeDist(pIn, maskIn) * 28.0) * uEdgeGlow * 0.5;
+    vec3 sIn = shadeVol(pIn);
+    over(col, acc, sIn,
+      shellFor(maskIn, pIn) * grazing(fresIn) * filledAt(pIn) * edgeAt(pIn) * fgAlpha());
   }
 
-  // Djupsnitten kan vara vridna kring höjdaxeln. Planen definieras av sin
-  // lutade normal i världsrymd, men skär tidsaxeln på samma ställen som förut,
-  // så att ordningen och tiderna är oförändrade.
-  vec3 tiltN = vec3(sin(uTilt), 0.0, cos(uTilt));
-  vec3 tiltR = vec3(cos(uTilt), 0.0, -sin(uTilt));
-  float cZero = tiltN.z * ((0.5 - uTimePos) * uTimeDir) * uScale.z;
+  // Djupsnitten kan vridas kring höjdaxeln (uTilt) och luta fram/bak kring
+  // sidaxeln (uTiltV). Planen definieras av sin lutade normal i världsrymd,
+  // men skär tidsaxeln på samma ställen som förut, så att ordningen och
+  // tiderna är oförändrade. tiltR och tiltU är snittets egna axlar.
+  float ca = cos(uTilt);
+  float sa = sin(uTilt);
+  float cb = cos(uTiltV);
+  float sb = sin(uTiltV);
+  vec3 tiltN = vec3(sa * cb, -sb, ca * cb);
+  vec3 tiltR = vec3(ca, 0.0, -sa);
+  vec3 tiltU = vec3(sa * sb, cb, ca * sb);
+  float anchorB = uTimeLoop > 0.5 ? uTimeAnchor : uTimePos;
+  float cZero = tiltN.z * ((0.5 - anchorB) * uTimeDir) * uScale.z;
   float cStep = tiltN.z * uScale.z / max(uTimeCount, 1.0);
 
-  float aT = 0.0, bT = 0.0, aX = 0.0, bX = 0.0, aY = 0.0, bY = 0.0;
+  float aT = 0.0, bT = 0.0;
   float denomT = dot(tiltN, rd * uScale);
   if (uTimeCount > 0.5 && abs(denomT) > 1e-5 && abs(cStep) > 1e-6) {
     aT = (cZero - dot(tiltN, vOrigin * uScale)) / denomT;
     bT = abs(cStep / denomT);
   }
-  if (uXCount > 0.5 && abs(rd.x) > 1e-5) {
-    aX = ((uXPos - 0.5) - vOrigin.x) / rd.x;
-    bX = abs(1.0 / (uXCount * rd.x));
-  }
-  if (uYCount > 0.5 && abs(rd.y) > 1e-5) {
-    aY = ((uYPos - 0.5) - vOrigin.y) / rd.y;
-    bY = abs(1.0 / (uYCount * rd.y));
-  }
+  float xA = uXPos - 0.5;
+  float xB = uXCount > 0.5 ? 1.0 / uXCount : 0.0;
+  float yA = uYPos - 0.5;
+  float yB = uYCount > 0.5 ? 1.0 / uYCount : 0.0;
 
   float dt = 1.0 / uSteps;
   float tPrev = b.x;
@@ -474,33 +752,57 @@ void main() {
       vec3 p = vOrigin + rd * ts;
       float sliceIndex = (dot(tiltN, p * uScale) - cZero) / cStep;
       float sliceTime = uTimePos - uTimeDir * sliceIndex / max(uTimeCount, 1.0);
-      // Snittets bredd är densamma vid vridning; det är lådan som klipper det.
-      vec2 uv = vec2(dot(p * uScale, tiltR) / uScale.x + 0.5, p.y + 0.5);
-      if (uv.x >= 0.0 && uv.x <= 1.0) {
-        vec3 c = (uHasVideo > 0.5 && abs(sliceIndex) < 0.5)
-          ? texture(uVideo, uv).rgb
-          : textureLod(uVolume, vec3(uv.x, 1.0 - uv.y, sliceTime), 0.0).rgb;
-        over(col, acc, grade(c), uTimeOpacity * sliceFade(sliceIndex)
-          * sliceWaveAt(sliceTime) * step(sliceTime, uFilled) * edgeAtTime(sliceTime));
+      if (uTimeLoop > 0.5) sliceTime = fract(sliceTime);
+      // Vridna snitt går från vägg till vägg — utanför bildrutan smetas
+      // kanten ut, som på väggarna — och kapas av lådans fram- och baksida.
+      // Tratten skalar bildrutan kring sin mitt på det djupet.
+      vec2 uv = vec2(dot(p * uScale, tiltR) / uSliceW + 0.5,
+                     dot(p * uScale, tiltU) / uSliceH + 0.5);
+      uv = clamp((uv - 0.5) / taperAt(p.z) + 0.5, 0.0, 1.0);
+      // AI-reliefen: där djupet säger nära buktar snittet mot betraktaren.
+      // Parallax i två steg: läs djupet, flytta blickpunkten, läs igen.
+      if (uDepthOn > 0.5 && uRelief > 0.001) {
+        vec3 vW = -rd * uScale;
+        float vn = max(abs(dot(vW, tiltN)), 0.2 * length(vW));
+        vec2 vt = vec2(dot(vW, tiltR) / uSliceW, dot(vW, tiltU) / uSliceH) / vn;
+        float h = (texture(uDepthVol, vec3(uv.x, 1.0 - uv.y, sliceTime)).r - 0.5) * uRelief;
+        vec2 uv2 = clamp(uv + vt * h, 0.0, 1.0);
+        h = (texture(uDepthVol, vec3(uv2.x, 1.0 - uv2.y, sliceTime)).r - 0.5) * uRelief;
+        uv = clamp(uv + vt * h, 0.0, 1.0);
       }
+      vec3 c = (uHasVideo > 0.5 && abs(sliceIndex) < 0.5)
+        ? texture(uVideo, uv).rgb
+        : volTexLoop(vec2(uv.x, 1.0 - uv.y), sliceTime);
+      // Utan bakgrund blir snitten urklipp: motivet står kvar, resten släpper igenom.
+      float fg = uBgRemove > 0.5 ? fgMask(c, vec2(uv.x, 1.0 - uv.y)) : 1.0;
+      // Exponeringsfönstret gäller allt utom bildrutan som spelas och de fulla
+      // ögonblicken: ju fullare snittet är, desto mer behåller det sitt ljus.
+      // Även snittens ändtoning följer lådan i loopläget, inte klippets skarv.
+      over(col, acc, tintByTime(gradeExp(c, 1.0 - sliceArc(sliceIndex)), sliceTime),
+        fg * sliceAlpha(sliceIndex)
+        * sliceWaveAt(sliceTime) * step(sliceTime, uFilled)
+        * edgeAtTime(uTimeLoop > 0.5 ? 0.5 - uTimeDir * p.z : sliceTime));
       ts += 1e-6;
     }
     ts = tPrev;
     for (int n = 0; n < MAX_SLICES_PER_STEP; n++) {
-      ts = nextSlice(ts, tEnd, aX, bX);
+      ts = uXFan > 0.5
+        ? fanNext(ts, tEnd, vOrigin, rd, uXPos * 3.14159265,
+            uXCount > 0.5 ? 3.14159265 / uXCount : 0.0)
+        : nextWallSlice(ts, tEnd, vOrigin.x, rd.x, vOrigin.z, rd.z, xA, xB);
       if (ts < 0.0) break;
       vec3 p = vOrigin + rd * ts;
-      over(col, acc, boxSideColor(p, vec2(1.0, 0.0), tiltN, tiltR, cZero, cStep, rdW),
-        uXOpacity * filledAt(p) * waveAt(p) * edgeAt(p));
+      vec3 sx = boxSideColor(p, shadeVol(p), vec2(1.0, 0.0), tiltN, tiltR, tiltU, cZero, cStep, rdW);
+      over(col, acc, sx, uXOpacity * filledAt(p) * waveAt(p) * edgeAt(p) * fgAlpha());
       ts += 1e-6;
     }
     ts = tPrev;
     for (int n = 0; n < MAX_SLICES_PER_STEP; n++) {
-      ts = nextSlice(ts, tEnd, aY, bY);
+      ts = nextWallSlice(ts, tEnd, vOrigin.y, rd.y, vOrigin.z, rd.z, yA, yB);
       if (ts < 0.0) break;
       vec3 p = vOrigin + rd * ts;
-      over(col, acc, boxSideColor(p, vec2(0.0, 1.0), tiltN, tiltR, cZero, cStep, rdW),
-        uYOpacity * filledAt(p) * waveAt(p) * edgeAt(p));
+      vec3 sy = boxSideColor(p, shadeVol(p), vec2(0.0, 1.0), tiltN, tiltR, tiltU, cZero, cStep, rdW);
+      over(col, acc, sy, uYOpacity * filledAt(p) * waveAt(p) * edgeAt(p) * fgAlpha());
       ts += 1e-6;
     }
 
@@ -509,13 +811,35 @@ void main() {
       if (uMaterial != 0) {
         bool inside = boxField(p) >= uIso;
         if (inside != inLiquid) boxLiquidSurface(rd, rdW, tLiquid, t, inside, col, acc);
-        if (inside) liquidBody(liquidUVT(vec3(p.x + 0.5, 0.5 - p.y, timeAt(p))).rgb, dt * worldPerUnit, col, acc);
+        if (inside) {
+          vec3 w = unwarp(p);
+          vec3 base = liquidUVT(vec3(w.x + 0.5, 0.5 - w.y, timeAt(p))).rgb;
+          liquidBody(tintByTime(base, timeAt(p)), dt * worldPerUnit, col, acc);
+        }
         inLiquid = inside;
         tLiquid = t;
       } else if (timeAt(p) <= uFilled) {
-        vec3 s = grade(sampleVol(p));
-        float k = mix(1.0, 0.25 + 1.5 * luma(s), uLumWeight) * waveAt(p) * edgeAt(p);
-        smoke(s, k, dt * worldPerUnit, col, acc, extra);
+        // Dimman lyser där bilden ändras mellan bildrutorna: en mjuk glöd som
+        // följer rörelsen genom lådan, ovanpå vilket innehållsläge som helst.
+        if (uMotionMist > 0.001) {
+          vec3 mv = abs(volumeAt(p, uFrameStep) - volumeAt(p, 0.0));
+          mist += (1.0 - acc) * tintByTime(grade(mv), timeAt(p)) * uMotionMist * 3.0
+            * waveAt(p) * edgeAt(p) * dt * worldPerUnit;
+        }
+        vec3 s = shadeVol(p);
+        float k = mix(1.0, 0.25 + 1.5 * luma(s), uLumWeight)
+          * waveAt(p) * edgeAt(p) * fgAlpha();
+        if (uBlend == 0) {
+          over(col, acc, s, 1.0 - exp(-uDensity * k * dt * worldPerUnit));
+        } else if (uBlend == 1) {
+          // Allt längs strålen lyser ihop, så mitten fylls i stället för att bli ett medelvärde.
+          // Automatisk exponering gäller bilden; i rörelseläget styr rörelsekänsligheten.
+          float gain = uContent != 1 ? uAutoGain : 1.0;
+          extra += (1.0 - acc) * s * k * uDensity * gain * dt * worldPerUnit;
+        } else {
+          // Det ljusaste längs strålen vinner, vilket lyfter fram innehållet i mitten.
+          extra = max(extra, s * k * (1.0 - acc));
+        }
       }
     }
 
@@ -528,12 +852,17 @@ void main() {
   // Baksidan av lådan.
   if (acc < 0.985) {
     float fresOut = 1.0 - abs(dot(nOut, rdW));
-    over(col, acc, grade(sampleVol(pOut)),
-      uShellBack * grazing(fresOut) * filledAt(pOut) * waveAt(pOut) * edgeAt(pOut));
-    glass += vec3(0.85, 0.95, 1.0) * exp(-edgeDist(pOut, nOut) * 28.0) * uEdgeGlow * 0.25 * (1.0 - acc);
+    vec3 sOut = shadeVol(pOut);
+    over(col, acc, sOut,
+      shellFor(maskOut, pOut) * grazing(fresOut) * filledAt(pOut) * edgeAt(pOut) * fgAlpha());
+    glass += vec3(0.85, 0.95, 1.0) * exp(-edgeDist(pOut, maskOut) * 28.0) * uEdgeGlow * 0.25 * (1.0 - acc);
   }
 
-  outColor = finish(col, acc, extra, glass);
+  // Adderande läge rullar av mjukt i toppen, annars bränns ljusa klipp ut till vitt.
+  if (uBlend == 1) extra = 1.0 - exp(-extra);
+  mist = 1.0 - exp(-mist);
+  col += extra + glass + mist;
+  outColor = vec4(col, clamp(acc + luma(extra) + luma(glass) + luma(mist), 0.0, 1.0));
 }
 
 #else
@@ -581,6 +910,8 @@ float timeAtU(float u) {
     t += uWarpAmp * mix(sin(x), wander(x, uSeed + 3.3) * 1.6, uWarpVar);
     t = 1.0 - abs(mod(t, 2.0) - 1.0);
   }
+  // Loopläget: klippet rullar runt genom formen, som genom lådan.
+  if (uTimeLoop > 0.5) t = fract(uTimePos + t - uTimeAnchor);
   return t;
 }
 
@@ -625,6 +956,8 @@ bool frameAt(Pt P, float ang, float n, out Frame f) {
     img -= uPathAmp * vec2(wander(x, uSeed), wander(x, uSeed + 7.1));
     f.roll += uPathRoll * wander(x, uSeed + 13.9);
   }
+  // Tratten: bildrutan är mindre eller större beroende på var längs formen den ligger.
+  img /= taperAt((0.5 - f.u) * uTimeDir);
   float c = cos(f.roll);
   float s = sin(f.roll);
   f.q = vec2(c * img.x + s * img.y, c * img.y - s * img.x) / uHalf;
@@ -640,6 +973,12 @@ bool frameAt(Pt P, float ang, float n, out Frame f) {
 }
 
 vec3 uvtOf(Frame f) { return vec3(f.s.x * 0.5 + 0.5, 0.5 - f.s.y * 0.5, f.t); }
+
+// Innehållets färdiga färg i bildrutan, med exponering och tidsfärg.
+vec3 shadeFrame(Frame f) { return tintByTime(grade(sampleUVT(uvtOf(f))), f.t); }
+
+// Toningen vid ändarna ligger vid formens ändar, som vid lådans fram- och bakkant.
+float formEdge(Frame f) { return edgeAtTime(clamp(f.u, 0.0, 1.0)); }
 
 // Grenarna vars vinkel hamnar inom klippets spann för någon vinkel i [lo, hi].
 vec2 branchRange(float lo, float hi) {
@@ -734,10 +1073,10 @@ float formField(vec3 p, out vec3 base) {
     Frame f;
     if (!frameAt(P, P.ang, n, f) || f.t > uFilled) continue;
     vec4 l = liquidUVT(uvtOf(f));
-    float v = l.a * waveAtTime(f.t) * edgeAtTime(f.t);
+    float v = l.a * waveAtTime(f.t) * formEdge(f);
     if (v > best) {
       best = v;
-      base = l.rgb;
+      base = tintByTime(l.rgb, f.t);
     }
   }
   return best;
@@ -795,15 +1134,16 @@ void formShell(vec3 ro, vec3 rd, float tIn, bool entering,
   } else {
     glass += (1.0 - acc) * vec3(0.85, 0.95, 1.0) * glow * 0.25;
   }
+  vec3 c = shadeFrame(f);
   float a = (entering ? uShellFront : uShellBack) * grazing(fres)
-    * step(f.t, uFilled) * waveAtTime(f.t) * edgeAtTime(f.t);
-  over(col, acc, grade(sampleUVT(uvtOf(f))), a);
+    * step(f.t, uFilled) * formEdge(f) * fgAlpha();
+  over(col, acc, c, a);
 }
 
 // Snittens nivåer längs en gren: 0 = tid, 1 = sidled, 2 = höjdled. Ett snitt
 // ligger där nivån är ett heltal.
 float sliceLevel(int family, Frame f) {
-  if (family == 0) return (f.t - uTimePos) * uTimeCount;
+  if (family == 0) return timeDelta(f.t) * uTimeCount;
   if (family == 1) return (f.s.x * 0.5 + 0.5 - uXPos) * uXCount;
   return (f.s.y * 0.5 + 0.5 - uYPos) * uYCount;
 }
@@ -830,10 +1170,11 @@ void formSlices(vec3 ro, vec3 rd, float ta, Pt pa, float angA, float tb, Pt pb, 
     for (int family = 0; family < 3; family++) {
       float count = family == 0 ? uTimeCount : family == 1 ? uXCount : uYCount;
       if (count < 0.5) continue;
-      // Tiden hoppar mellan bitarna; det är en skarv, inte ett snitt.
-      if (family == 0 && fa.seg != fb.seg) continue;
       float ga = sliceLevel(family, fa);
       float gb = sliceLevel(family, fb);
+      // Tiden hoppar mellan bitarna, och i loopläget vid skarven; det är en
+      // skarv, inte ett snitt.
+      if (family == 0 && (fa.seg != fb.seg || abs(gb - ga) > 0.5 * uTimeCount)) continue;
       if (floor(ga) == floor(gb)) continue;
       float dir = gb > ga ? 1.0 : -1.0;
       float k = dir > 0.0 ? floor(ga) + 1.0 : floor(ga);
@@ -860,17 +1201,23 @@ void formSlices(vec3 ro, vec3 rd, float ta, Pt pa, float angA, float tb, Pt pb, 
         if (frameOnRay(ro, rd, tr, pa, angA, n, f)) {
           if (family == 0) {
             float tk = uTimePos + k / uTimeCount;
+            if (uTimeLoop > 0.5) tk = fract(tk);
             if (tk >= 0.0 && tk <= 1.0) {
               vec2 uv = f.s * 0.5 + 0.5;
               vec3 c = (uHasVideo > 0.5 && abs(k) < 0.5)
                 ? texture(uVideo, uv).rgb
-                : textureLod(uVolume, vec3(uv.x, 1.0 - uv.y, tk), 0.0).rgb;
-              over(col, acc, grade(c), uTimeOpacity * sliceFade(k)
-                * sliceWaveAt(tk) * step(tk, uFilled) * edgeAtTime(tk));
+                : volTexLoop(vec2(uv.x, 1.0 - uv.y), tk);
+              // Samma ögonblick som i lådan: urklipp utan bakgrund, exponering
+              // som skonar de fulla ögonblicken, och styrkerampen.
+              float fg = uBgRemove > 0.5 ? fgMask(c, vec2(uv.x, 1.0 - uv.y)) : 1.0;
+              over(col, acc, tintByTime(gradeExp(c, 1.0 - sliceArc(k)), tk),
+                fg * sliceAlpha(k) * sliceWaveAt(tk) * step(tk, uFilled)
+                * edgeAtTime(uTimeLoop > 0.5 ? clamp(f.u, 0.0, 1.0) : tk));
             }
           } else {
             float opacity = family == 1 ? uXOpacity : uYOpacity;
-            vec3 c = grade(sampleUVT(uvtOf(f)));
+            vec3 c = shadeFrame(f);
+            float fg = fgAlpha();
             if (uPrism > 0.0 && uTimeCount > 0.5) {
               vec3 p = ro + rd * tr;
               float len = uDepthW;
@@ -881,11 +1228,11 @@ void formSlices(vec3 ro, vec3 rd, float ta, Pt pa, float angA, float tb, Pt pb, 
                 along = uTanDir * cos(f.thW) - uRadDir * sin(f.thW);
               }
               vec2 fold = family == 1 ? vec2(1.0, 0.0) : vec2(0.0, 1.0);
-              vec3 prism = prismColor((f.t - uTimePos) * uTimeCount, 1.0, len / uTimeCount,
+              vec3 prism = prismColor(timeDelta(f.t) * uTimeCount, 1.0, len / uTimeCount,
                 f.s * 0.5 + 0.5, fold, 2.0 * uHalf, dot(rd, along));
-              c = mix(c, grade(prism), uPrism);
+              c = mix(c, tintByTime(grade(prism), f.t), uPrism);
             }
-            over(col, acc, c, opacity * step(f.t, uFilled) * waveAtTime(f.t) * edgeAtTime(f.t));
+            over(col, acc, c, opacity * step(f.t, uFilled) * waveAtTime(f.t) * formEdge(f) * fg);
           }
         }
         k += dir;
@@ -905,6 +1252,7 @@ void main() {
   float acc = 0.0;
   vec3 glass = vec3(0.0);
   vec3 extra = vec3(0.0);
+  vec3 mist = vec3(0.0);
 
   float dt = length(uBoundsMax - uBoundsMin) / uSteps;
   float tPrev = b.x;
@@ -927,6 +1275,7 @@ void main() {
     vec3 sCol = vec3(0.0);
     float sAcc = 0.0;
     vec3 sExtra = vec3(0.0);
+    vec3 sMist = vec3(0.0);
     bool inCur = liquid && insidePt(pCur);
     vec2 nr = liquid ? vec2(0.0, -1.0) : branchRange(pCur.ang, pCur.ang);
     for (int j = 0; j < MAX_BRANCHES; j++) {
@@ -937,9 +1286,15 @@ void main() {
       if (!frameAt(pCur, pCur.ang, n, f)) continue;
       inCur = true;
       if (f.t > uFilled) continue;
-      vec3 s = grade(sampleUVT(uvtOf(f)));
-      float k = mix(1.0, 0.25 + 1.5 * luma(s), uLumWeight) * waveAtTime(f.t) * edgeAtTime(f.t);
+      vec3 s = shadeFrame(f);
+      float k = mix(1.0, 0.25 + 1.5 * luma(s), uLumWeight) * waveAtTime(f.t) * formEdge(f) * fgAlpha();
       smoke(s, k, dt, sCol, sAcc, sExtra);
+      // Rörelsedimman, som i lådan: en glöd där bilden ändras mellan bildrutorna.
+      if (uMotionMist > 0.001) {
+        vec3 uvt = uvtOf(f);
+        vec3 mv = abs(volTexLoop(uvt.xy, uvt.z + uFrameStep) - volTexLoop(uvt.xy, uvt.z));
+        sMist += tintByTime(grade(mv), f.t) * uMotionMist * 3.0 * waveAtTime(f.t) * formEdge(f) * dt;
+      }
     }
 
     if (inCur && !inPrev) {
@@ -956,6 +1311,7 @@ void main() {
     } else {
       if (uBlend == 1) extra += (1.0 - acc) * sExtra;
       else if (uBlend == 2) extra = max(extra, sExtra * (1.0 - acc));
+      mist += (1.0 - acc) * sMist;
       col += (1.0 - acc) * sCol;
       acc += (1.0 - acc) * sAcc;
     }
@@ -971,7 +1327,7 @@ void main() {
     t += dt;
   }
 
-  outColor = finish(col, acc, extra, glass);
+  outColor = finish(col, acc, extra, glass, mist);
 }
 
 #endif

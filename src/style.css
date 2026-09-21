@@ -508,6 +508,85 @@ select {
   margin: 0;
   color: var(--text-faint);
   font-size: 12px;
+  /* Delningskoder och namn utan mellanslag får brytas, annars breddar de panelen. */
+  overflow-wrap: anywhere;
+}
+
+/* Ett i intill etiketten; förklaringen fälls ut som en egen rad under. */
+.info-btn {
+  appearance: none;
+  flex: none;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  margin-left: 6px;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: transparent;
+  color: var(--text-faint);
+  font: italic 700 10px/1 Georgia, 'Times New Roman', serif;
+  cursor: help;
+  vertical-align: 1px;
+}
+
+.info-btn:hover,
+.info-btn.is-open {
+  color: var(--text);
+  border-color: var(--text-dim);
+}
+
+/* Tärningen intill etiketten: om slumpen får röra reglaget. Släckt = fredat. */
+.rand-btn {
+  appearance: none;
+  flex: none;
+  padding: 0 2px;
+  margin-left: 6px;
+  border: none;
+  background: transparent;
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+  vertical-align: -1px;
+}
+
+.rand-btn.is-off {
+  opacity: 0.25;
+  filter: grayscale(1);
+}
+
+.row-info {
+  grid-column: 1 / -1;
+  margin: 0;
+  padding-left: 8px;
+  border-left: 2px solid var(--border);
+  color: var(--text-faint);
+  font-size: 12px;
+}
+
+/* Vikbar underrubrik: ett tryck fäller in och ut raderna under den. */
+.fold {
+  appearance: none;
+  border: none;
+  background: transparent;
+  padding: 2px 0;
+  text-align: left;
+  color: var(--text-dim);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.fold:hover {
+  color: var(--text);
+}
+
+/* Reglage som hör till fliklisten ovanför hänger ihop med den visuellt,
+   så att man ser var flikens innehåll slutar och resten av avsnittet tar vid. */
+.row-pane {
+  margin-left: 5px;
+  padding-left: 10px;
+  border-left: 2px solid var(--border);
+  border-left: 2px solid color-mix(in srgb, var(--sec-accent) 45%, transparent);
 }
 
 .presets {
@@ -561,6 +640,28 @@ input[type='checkbox'] {
   width: 14px;
   height: 14px;
   margin: 0;
+}
+
+/* Standardvärdets märke på reglaget; tummen glider ovanpå det. */
+.range-wrap {
+  position: relative;
+  display: block;
+}
+
+.range-wrap input {
+  position: relative;
+  z-index: 1;
+}
+
+.range-tick {
+  position: absolute;
+  top: 50%;
+  width: 2px;
+  height: 9px;
+  transform: translate(-50%, -50%);
+  border-radius: 1px;
+  background: var(--text-faint);
+  pointer-events: none;
 }
 
 input[type='range'] {

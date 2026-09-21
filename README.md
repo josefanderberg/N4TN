@@ -37,20 +37,28 @@ Allt körs lokalt i webbläsaren. Ingen fil laddas upp någonstans.
 
 ## Reglagen
 
+Varje reglage har en liten **i**-knapp intill etiketten som fäller ut en förklaring av vad
+det ändrar, och ett litet streck på skalan som märker ut standardvärdet, så att du hittar
+tillbaka efter en ändring (dubbelklick på reglaget återställer det). Tärningen **🎲 Slumpa**
+i toppraden slumpar fram en ny look av de reglage som får slumpas — se gruppen **Slumpa**.
+
 | Grupp | Vad det gör |
 | --- | --- |
-| **Sparade inställningar** | Namngivna uppsättningar av alla reglage: spara, hämta tillbaka, ta bort. Samt en kort kod för att dela eller flytta en uppsättning. |
-| **Volym** | Fyra flikar. **Bildrutor**: antal bildrutor och upplösning i 3D-texturen — fria tal, skriv vad du vill (2–512 bildrutor, 32–720 px). Djupet går till 50, vilket drar ut lådan till en lång korridor. Raden under visar vad valet kostar i minne. Ändring kräver **Bygg om volym**. Här finns också lådans djup och tidsriktning. **Form**, **Bana** och **Tid** böjer, slingrar och klipper om tiden, se nedan. |
-| **Utseende** | Innehåll (bild/rörelse), material (rök, vätska, krom, gelé), blandning, densitet, toning vid klippets ändar, hur mycket ytorna syns, ljusstyrka, mättnad, glasreflex, kantglöd, kantlinjer, renderingskvalitet och bakgrundsfärg. |
+| **Volym** | Sammanhanget: lådan som klippet byggs in i. Antal bildrutor och upplösning i 3D-texturen — fria tal, skriv vad du vill (2–512 bildrutor, 32–720 px). Raden under visar vad valet kostar i minne och om volymen är byggd med just de värdena. Ändring kräver **Bygg om volym**, som går att trycka på så fort ett klipp är laddat — även med oförändrade värden, för att göra om ett bygge som blev fel eller avbröts. Djupet är ett reglage upp till 5; **Utöka djupet…** öppnar ett fritt fält där du skriver vad du vill upp till 200. **Storlek fram/bak** gör lådan till en tratt: olika storlek på ändarna får innehållet att växa eller krympa genom flödet. Längst ner lådans egna kanter — kantlinjer och kantglöd — samt den vikbara gruppen **Ytor och glas** med glasreflexen och en yta per sida (fram, bak, vänster, höger, tak, botten) och bakgrundsfärgen. |
+| **Form och tid** | Tiden som form i rummet. **Form** böjer klippet runt en axel (cylinder, donut, boll, spiral), rundar och vrider det; **Bana** låter bildrutorna slingra åt sidorna och upp och ner och snurra; **Tid** låter tiden gå fram och tillbaka eller hoppa i bitar över hela klippet. |
+| **Utseende** | Helheten inne i lådan: innehåll (bild/rörelse), material (rök, vätska, krom, gelé), bakgrundsborttagning med tröskel, blandning, densitet, rörelsedimma, exponeringsbotten och -tak (fönstret däremellan dras ut till full skala — bildrutan som spelas och de fulla ögonblicken behåller sitt ljus), ljusstyrka, mättnad, färg efter tid, renderingskvalitet och sist toningen vid klippets ändar. |
 | **Partiklar** | Gör om tidskuben till partiklar som kan slungas ut, falla med gravitation, studsa mot en behållare, virvla och dras tillbaka till bilden. |
-| **Snitt** | En flik per riktning: djupled (tiden), sidled (X) och höjdled (Y). Varje flik har antal, position, automatiskt svep och egen opacitet. Antalet går till 256 och styr hur många plan som läggs ut med jämna mellanrum; 0 stänger av riktningen och gråar ut resten av flikens reglage. Fliken **Prisma** viker djupsnittens bilder över på de andra snitten. |
-| **Special** | Vrider djupsnitten mot kameravinkeln, med håll och styrka. |
-| **Kamera** | Följ tidssnittet, fri musstyrning, pendel eller rotation, hastighet och brännvidd. |
+| **Ögonblick** | Bildrutorna som skarpa plan — flera tider samtidigt. En flik per riktning: djupled (tiden), sidled (X) och höjdled (Y), var och en med antal, position, uppspelning/svep och opacitet. Under Djupled ligger också mönstret mellan ögonblicken: vågen i två underflikar (Bildrutan som spelas och Övriga ögonblick) samt rampen — opacitet mellan ögonblicken, hur många som lyser för fullt och Bågens form. Antalet går till 256; 0 (eller avbockat) stänger av riktningen och gråar ut resten av flikens reglage. Fliken **Prisma** viker ögonblickens bilder över på snitten i sidled och höjdled. |
+| **Special** | Vrider ögonblicken mot kameravinkeln — i sidled, i höjdled eller båda — med håll och styrka. Här bor också **Stereogram**: två ögonvyer sida vid sida som ger äkta 3D med korsblick eller parallellblick, utan glasögon. |
+| **AI-djup (5D)** | En AI-modell skattar djupet i bildrutorna direkt i webbläsaren, och **Relief** låter ögonblicken bukta mot betraktaren där det är nära. |
+| **Kamera** | Följ ögonblicket, fri musstyrning, pendel eller rotation, hastighet och brännvidd. |
 | **Export** | Bildformat (1:1, 4:5, 9:16, 16:9), bildfrekvens, kvalitet, antal varv och om ljudet ska med. |
+| **Slumpa** | Tärningen 🎲 i toppraden slumpar looken. **Välj vad som får slumpas** visar en tärning intill varje reglage: tänd = får slumpas, släckt = fredas. Bygget och exporten rörs aldrig; kamera, rum och de tyngsta valen är släckta från början. |
+| **Sparade inställningar** | Längst ner: namngivna uppsättningar av alla reglage — spara, hämta tillbaka, ta bort — samt en kort kod för att dela eller flytta en uppsättning. |
 
 ### Formen
 
-Under **Volym → Form** kan bildrutorna läggas i en cirkel i stället för rakt bakåt.
+Under **Form och tid → Form** kan bildrutorna läggas i en cirkel i stället för rakt bakåt.
 **Böj runt axel** är hur många grader klippet täcker runt axeln: 0 är den vanliga lådan,
 360 ett helt varv och upp till 1080 tre varv. **Centrum** är var axeln sitter i förhållande
 till bilden: 0 mitt i bilden, 1 vid bildens kant och över 1 utanför, så att det blir ett hål i
@@ -67,14 +75,16 @@ Snabbvalen ger utgångslägen att skruva vidare på:
   proportioner, så en 16:9-video ger en tillplattad boll.
 * **Spiral** — tre varv som stiger längs axeln.
 
-Med **Följ tidssnittet** påslaget snurrar en böjd form runt sin axel i stället för att
+Med **Följ ögonblicket** påslaget snurrar en böjd form runt sin axel i stället för att
 kameran åker, så att bildrutan som spelas står still och resten av formen vandrar förbi. Ett
-helt varv går därför runt sömlöst när klippet börjar om. Djupet under Bildrutor gäller inte
-när formen är böjd, och Special gäller bara den raka lådan.
+helt varv går därför runt sömlöst när klippet börjar om. Djupet under Volym gäller inte
+när formen är böjd. Tratten (Storlek fram och bak), loopläget, bakgrundsborttagningen,
+exponeringsfönstret, färg efter tid och rörelsedimman gäller även formerna; vridningen under
+Special, solfjädern och AI-reliefen gäller bara den raka lådan.
 
 ### Bana
 
-**Volym → Bana** låter bildrutorna vandra i stället för att gå rakt: **Åt sidorna** och
+**Form och tid → Bana** låter bildrutorna vandra i stället för att gå rakt: **Åt sidorna** och
 **Upp och ner** är hur långt (i halva bildbredder och bildhöjder), **Snurra** hur mycket de
 vrider sig fram och tillbaka. **Mjukhet** styr hur lugnt banan slingrar, och **Rörelse** får
 den att röra sig över tid. **Ny slump** ger en annan bana. Allt fungerar ihop med formerna,
@@ -82,13 +92,13 @@ så en donut kan slingra och en spiral snurra.
 
 ### Tid
 
-**Volym → Tid** gör tiden olinjär längs formen. **Fram och tillbaka** låter tiden gå
+**Form och tid → Tid** gör tiden olinjär längs formen. **Fram och tillbaka** låter tiden gå
 växelvis framåt och bakåt: värdet är hur långt tillbaka varje sväng går, **Takt** hur många
 svängar det blir, **Oregelbundenhet** gör svängarna olika långa och **Rörelse** får mönstret
 att vandra. **Hoppa i tiden** delar formen i bitar, var och en med en lika lång bit ur en
 annan del av klippet — 0,5 sekunder här, 0,5 sekunder där. **Bitarnas längd** anges i
-sekunder, och hoppar ska de från 0 (i ordning) till 1 (helt utspridda). När en tid finns på
-flera ställen visas tidssnittet på alla dem.
+sekunder, och hoppen går från 0 (i ordning) till 1 (helt utspridda). När en tid finns på
+flera ställen visas ögonblicket på alla dem.
 
 ### Innehåll
 
@@ -96,33 +106,58 @@ flera ställen visas tidssnittet på alla dem.
   blir svart, och det som rör sig ritar banor genom lådan. Det är det som ger innehåll i mitten;
   i bildläget blir mitten annars summan av allt och därmed en jämn gröt utan struktur.
   **Rörelsekänslighet** styr hur mycket små rörelser förstärks.
+* **Rörelsedimma** — en självlysande dimma som glöder där det rör sig i klippet, ovanpå
+  vilket innehållsläge som helst, så att banorna syns genom lådan.
 * **Bild** — råa bildrutor. Ger den lugnare, rökiga looken där lådans ytor dominerar.
+* **Bild + rörelse** — bilden i botten och rörelsebanorna lysande ovanpå.
+* **Ta bort bakgrunden** — en bakgrundsbild räknas fram ur hela klippet (tidsmedianen per
+  bildpunkt), och allt som ligger nära den släcks: kvar blir det som rör sig eller skiljer
+  sig, svävande fritt i lådan. **Bakgrundströskel** avgör hur stor skillnaden måste vara —
+  höj om bakgrunden skimrar kvar, sänk om motivet äts upp. Fungerar bäst när kameran i
+  klippet står still.
+* **Färg efter tid** — tonar varje ögonblick efter var i klippet det hör hemma: början röd,
+  mitten grön, slutet blå. Tiden blir en färgskala genom lådan; i loopläget går skalan hela
+  varvet runt så att skarven inte byter färg. Med **Mättnad** 0 blir det ren tidsfärg.
 
-### Snitten i djupled
+### Ögonblicken
 
-**Antal** lägger ut flera tidssnitt med jämna mellanrum, som alla följer uppspelningen.
+Ögonblicken är tidssnitten: bildrutor som skarpa plan tvärs genom lådan, så att flera tider
+syns samtidigt. **Antal** lägger ut dem med jämna mellanrum, och alla följer uppspelningen.
+**Loopa genom lådan** vänder på det: snitten står still och klippet rullar cykliskt igenom —
+bildrutan som spelats förbi kommer in längst bak igen, och kameran behöver aldrig flytta sig.
+**Följda bildrutans läge** väljer var i lådan den spelade bildrutan står: längst fram, i
+mitten eller längst bak. **Mjuka skarven** blandar klippets slut och början över en ställbar
+andel, så att brytningen som annars vandrar genom lådan försvinner.
+Opaciteten ställs i två reglage: ett för **bildrutan som spelas** och ett för de övriga
+**fulla ögonblicken**, så att det följda ögonblicket kan lysa för sig. **Dynamisk opacitet**
+är ett trappsteg: varje fullt ögonblick tappar så mycket i styrka för varje steg bort från
+den spelade bildrutan (0,1 ger 0,9 → 0,8 → 0,7 …), så att det längst bort visas svagast.
 
-**Snitt med full styrka** är hur många av snitten som lyser för fullt samtidigt, jämnt
-fördelade över klippet. 1 ger ett — det som spelas. 2 ger två som ligger en halv film isär och
-går samtidigt, 3 ger tre en tredjedel isär, och så vidare. Alla är lika starka och var och en
-har en båge före och efter sig. De vandrar med uppspelningen: när en lämnar bakkanten kommer
-nästa in framifrån.
+### Mönstret mellan ögonblicken
 
-**Uttoning mellan dem** är hur djupt det sjunker i dalarna mellan topparna — 0 ger lika starka
-snitt hela vägen, och då spelar antalet fulla ingen roll, så de reglagen gråas ut. Vid 1
-släcks dalarna helt. Tänk också på att hög opacitet gör att det främsta snittet skymmer de
-bakom, oavsett hur många toppar som är inställda. **Bågens form** ändrar kurvan däremellan: låga värden
-ger breda toppar som nästan möts, höga ger spetsiga toppar med tydliga mellanrum.
+Rampen och vågen ligger under Ögonblick → Djupled och styr hur ögonblicken tonar i och ur
+varandra.
 
-Tidssnitten styrs bara av de här reglagen. Vågen under Utseende gäller volymen och lådans ytor,
-så att den inte trycker ner toppar som ligger långt från uppspelningen.
+**Ögonblick med full styrka** är hur många som lyser för fullt samtidigt, jämnt fördelade
+över klippet. 1 ger ett — det som spelas. 2 ger två som ligger en halv film isär och går
+samtidigt, 3 ger tre en tredjedel isär, och så vidare. De vandrar med uppspelningen: när ett
+lämnar bakkanten kommer nästa in framifrån.
+
+**Opacitet mellan ögonblicken** är där auran bottnar mellan de fulla. Ligger den i nivå med
+ögonblickens egen opacitet är alla lika starka och rampen platt; med 0 släcks dalarna helt.
+Tänk också på att hög opacitet gör att det främsta ögonblicket skymmer de bakom, oavsett hur
+många toppar som är inställda. **Bågens form** ändrar kurvan mellan de två nivåerna: låga
+värden ger breda toppar som nästan möts, höga ger spetsiga toppar med tydliga mellanrum.
 
 ### Vågen
 
 Vågen låter det närmast uppspelningen synas starkast och tona ut åt båda håll, i stället för
-att hela klippet syns lika mycket hela tiden. Den har två flikar med var sin uppsättning:
-**Bildrutan som spelas** gäller volymen och lådans ytor, **Övriga djupsnitt** gäller snitten i
-djupled. De är skilda åt så att den ena inte trycker ner den andras toppar.
+att hela klippet syns lika mycket hela tiden. Den ligger under Ögonblick → Djupled, i två
+underflikar med var sin uppsättning: **Bildrutan som spelas** gäller volymen, **Övriga
+ögonblick** gäller ögonblicken i djupled och dyker upp först när Antal är över 1. De är
+skilda åt så att den ena inte trycker ner den andras toppar. Lådans ytor lyser jämnt och
+styrs per sida under Volym → Ytor och glas, så att en yta är hela sidans klarhet — inte ett
+band som följer uppspelningen.
 
 **Vågens längd** är hur stor del av klippet som fortfarande syns tydligt: en kort våg ger ett
 smalt fönster som vandrar genom lådan, en lång ger en mjuk uttoning.
@@ -187,22 +222,53 @@ plats direkt. Behållaren är lådan runt formen, förstorad med **Behållarens 
 
 ### Prisma
 
-**Snitt → Prisma** får djupsnitten och snitten i sidled och höjdled att samverka. Där ett
-djupsnitt möter ett sidosnitt viker bilden från snittets tid över på sidosnittet, som om
+**Ögonblick → Prisma** får ögonblicken och snitten i sidled och höjdled att samverka. Där ett
+ögonblick möter ett sidosnitt viker bilden från ögonblickets tid över på sidosnittet, som om
 bildrutan böjdes runt hörnet: bildens högra del fortsätter bakåt längs sidosnittet och den
 vänstra framåt. **Styrka** blandar in det, **Räckvidd** är hur långt bilden hinner vika ut
 innan den tonar bort, och **Regnbåge** låter färgerna vika olika långt, som ljus genom ett
 prisma. **Följer kameran** förskjuter bilden efter hur man tittar, så att den glider när
 kameran rör sig — det är det som ger hologramkänslan. **Prova hologram** ställer in glesa
-djupsnitt och några sidosnitt att börja från. Prismat fungerar också i de fria formerna.
+ögonblick och några sidosnitt att börja från. Prismat fungerar också i de fria formerna.
 
 ### Special
 
-**Vrid snitten efter kameran** vrider djupsnitten lika mycket som kameran är vinklad mot
+**Vrid ögonblicken efter kameran** vrider ögonblicken lika mycket som kameran är vinklad mot
 lådans mittpunkt, fast åt motsatt håll, så att de står på diagonalen men behåller sin ordning
-genom lådan. Snitten behåller sin egen bredd; det är lådan som klipper dem smalare ju mer de
-vrids. **Motsatt håll** vänder vridningen, och **Hur mycket** skalar den — kring halv styrka
-syns lutningen tydligast, full styrka vrider dem nästan på kant mot kameran.
+genom lådan. Lådan behåller sin fulla bredd: varje ögonblick sträcker sig från vägg till vägg
+— utanför bildrutan smetas kanten ut, som på väggarna — och kapas av lådans fram- och baksida.
+**Luta upp och ner (höjdled)** gör samma sak kring sidaxeln: ögonblicken lutar fram och bak
+när kameran panorerar upp eller ner, och de två går att kombinera. **Motsatt håll** vänder
+vridningen, och **Hur mycket** skalar den — kring halv styrka syns lutningen tydligast.
+
+### Stereogram
+
+**Stereogram (3D med blicken)** under Special delar bilden i två vyer, en per öga, med
+**Djupstyrka** som vinkeln mellan dem. Korsa blicken tills de två bilderna glider ihop till en
+tredje i mitten — den är tredimensionell på riktigt, utan glasögon. **Korsblick** (standard)
+lägger högra ögats vy till vänster och funkar på alla skärmstorlekar; **Parallellblick** är
+tvärtom och passar när bilderna är smala och skärmen hålls en bit bort. Börja med låg
+djupstyrka och öka när ögonen har hittat rätt. Exporten spelas in likadant, så 3D-klippen går
+att dela.
+
+### Solfjädern
+
+Under Ögonblick → Sidled kan snitten vinklas mot mitten: **Vinkla mot mitten (solfjäder)**
+gör dem till plan genom lådans mittaxel, jämnt spridda i vinkel, i stället för att gå rakt
+igenom — som bladen i en hologramfläkt. **Position** vrider solfjädern, **Svep automatiskt**
+snurrar den runt axeln, **Snurrhastighet** styr hur fort och **Centrum (fram–bak)** flyttar
+axeln i djupled.
+
+### AI-djup (5D)
+
+Under **AI-djup (5D)** kan en liten djupmodell (Depth Anything V2) skatta hur nära kameran
+varje del av bilden är. **Beräkna djup (AI)** hämtar modellen (cirka 25–50 MB, bara första
+gången — den läggs i webbläsarens cache) och räknar ut djupet för ett antal **nyckelrutor**;
+bildrutorna däremellan tonas fram. Allt körs lokalt i webbläsaren, klippet laddas aldrig upp.
+När djupet är klart styr **Relief** hur mycket ögonblicken buktar mot betraktaren där det är
+nära: bildrutorna blir små landskap i stället för platta plan, och motivet kliver ut ur
+snittet när kameran rör sig. Djupet hör till det byggda klippet och räknas om efter varje
+nytt bygge.
 
 ### Följ tidssnittet
 

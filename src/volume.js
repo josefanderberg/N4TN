@@ -36,6 +36,7 @@ function wander(x, seed) {
     + 0.15 * Math.sin(4.37 * x + seed * 5.3 + 2.9);
 }
 
+
 function lineMaterial(opacity) {
   return new THREE.LineBasicMaterial({
     color: 0xffffff,
@@ -49,6 +50,7 @@ function lineMaterial(opacity) {
 function boxOutline(geometry, opacity) {
   const lines = new THREE.LineSegments(new THREE.EdgesGeometry(geometry), lineMaterial(opacity));
   lines.renderOrder = 2;
+  lines.frustumCulled = false;
   return lines;
 }
 
@@ -64,28 +66,100 @@ class SliceOutlines {
     this.lines.frustumCulled = false;
   }
 
-  write(offset, coord, corner) {
-    const a = this.array;
-    if (this.axis === 0) a.set([coord, corner[1], corner[0]], offset);
-    else if (this.axis === 1) a.set([corner[0], coord, corner[1]], offset);
-    else a.set([corner[0], corner[1], coord], offset);
-    return offset + 3;
+  // De fyra hörnen för snittet vid `coord`. Tratten skalar hörnen med
+  // tvärsnittet där de står, så sid- och höjdsnitten blir lutande fyrhörningar
+  // som följer väggarna. Vridna ögonblick (bara djupled) blir parallellogram:
+  // snittets breddaxel klippt mot lådans väggar och fram-/baksida, så konturen
+  // följer exakt det som syns av snittet.
+  cornersFor(coord, tilt, taper, fan) {
+    const w = (z) => (taper ? taper.back + (z + 0.5) * (taper.front - taper.back) : 1);
+    if (this.axis === 0 && fan) {
+      // Bladet är ett plan genom solfjäderns axel (x = 0, z = fan.z0) vid
+      // vinkeln coord, klippt mot väggarna och fram-/baksidan.
+      const sphi = Math.sin(coord);
+      const cphi = Math.cos(coord);
+      const uMaxX = (0.5 * fan.sx) / Math.max(Math.abs(sphi), 1e-4);
+      let uLo = -uMaxX;
+      let uHi = uMaxX;
+      if (Math.abs(cphi) > 1e-4) {
+        const a = ((-0.5 - fan.z0) * fan.sz) / cphi;
+        const b = ((0.5 - fan.z0) * fan.sz) / cphi;
+        uLo = Math.max(uLo, Math.min(a, b));
+        uHi = Math.min(uHi, Math.max(a, b));
+      }
+      if (uLo >= uHi) return RECT.map(() => [0, 0, fan.z0]);
+      const at = (u, y) => [(u * sphi) / fan.sx, y, fan.z0 + (u * cphi) / fan.sz];
+      return [at(uLo, -0.5), at(uHi, -0.5), at(uHi, 0.5), at(uLo, 0.5)];
+    }
+    if (this.axis === 0) return RECT.map((c) => [coord * w(c[0]), c[1] * w(c[0]), c[0]]);
+    if (this.axis === 1) return RECT.map((c) => [c[0] * w(c[1]), coord * w(c[1]), c[1]]);
+    // Tratten skalar snittets rektangel kring dess mitt på det djupet.
+    const s = w(coord);
+    if (!tilt) return RECT.map((c) => [c[0] * s, c[1] * s, coord]);
+    // Snittets egna axlar: R i sidled (vridningen), U i höjdled (lutningen).
+    // Spannen når väggar, golv och tak; fram- och baksidan klipper i z:
+    // z(d, e) = coord + (−d·sa + e·ca·sb) / sz — först klipps d längs
+    // mittlinjen, sedan e så att båda d-ändarna ryms.
+    const { ca, sa, cb, sb, sx, sy, sz } = tilt;
+    let dHi = ((0.5 * sx) / Math.max(Math.abs(ca), 0.05)) * s;
+    let dLo = -dHi;
+    let eHi = ((0.5 * sy) / Math.max(Math.abs(cb), 0.05)) * s;
+    let eLo = -eHi;
+    if (Math.abs(sa) > 1e-6) {
+      const a = ((coord - 0.5) * sz) / sa;
+      const b = ((coord + 0.5) * sz) / sa;
+      dLo = Math.max(dLo, Math.min(a, b));
+      dHi = Math.min(dHi, Math.max(a, b));
+    }
+    const zc = ca * sb;
+    if (Math.abs(zc) > 1e-6 && dLo < dHi) {
+      for (const d of [dLo, dHi]) {
+        const a = ((-0.5 - coord) * sz + d * sa) / zc;
+        const b = ((0.5 - coord) * sz + d * sa) / zc;
+        eLo = Math.max(eLo, Math.min(a, b));
+        eHi = Math.min(eHi, Math.max(a, b));
+      }
+    }
+    // Helt utanför lådan: nollsegment, som inte ritar något.
+    if (dLo >= dHi || eLo >= eHi) return RECT.map(() => [0, 0, coord]);
+    const at = (d, e) => [
+      (d * ca + e * sa * sb) / sx,
+      (e * cb) / sy,
+      coord + (-d * sa + e * ca * sb) / sz,
+    ];
+    return [at(dLo, eLo), at(dHi, eLo), at(dHi, eHi), at(dLo, eHi)];
   }
 
-  update(coords) {
+  update(coords, tilt = null, taper = null, fan = null) {
     const count = coords.length;
     this.lines.visible = count > 0 && count <= MAX_OUTLINES;
     if (!this.lines.visible) return;
     let offset = 0;
     for (const coord of coords) {
+      const pts = this.cornersFor(coord, tilt, taper, fan);
       for (let e = 0; e < 4; e++) {
-        offset = this.write(offset, coord, RECT[e]);
-        offset = this.write(offset, coord, RECT[(e + 1) % 4]);
+        this.array.set(pts[e], offset);
+        this.array.set(pts[(e + 1) % 4], offset + 3);
+        offset += 6;
       }
     }
     this.lines.geometry.setDrawRange(0, count * 8);
     this.lines.geometry.attributes.position.needsUpdate = true;
   }
+}
+
+// Lådans skal som en tratt: tvärsnittet i x/y skalas med w(z), så att fram-
+// och baksidan kan ha olika storlek. Vid 1/1 är det den vanliga enhetskuben,
+// och trådramen faller ut ur samma geometri via EdgesGeometry.
+function frustumGeometry(front, back) {
+  const geometry = new THREE.BoxGeometry(1, 1, 1);
+  const position = geometry.attributes.position;
+  for (let i = 0; i < position.count; i++) {
+    const w = back + (front - back) * (position.getZ(i) + 0.5);
+    position.setX(i, position.getX(i) * w);
+    position.setY(i, position.getY(i) * w);
+  }
+  return geometry;
 }
 
 // Alla snittplan längs en axel: ett vid `center`, resten jämnt fördelade med 1 / count.
@@ -126,6 +200,8 @@ function makeForm() {
     pathFreq: 1,
     pathPhase: 0,
     seed: 0,
+    taperFront: 1,
+    taperBack: 1,
     axis: new THREE.Vector3(0, 1, 0),
     rad: new THREE.Vector3(1, 0, 0),
     tan: new THREE.Vector3(0, 0, -1),
@@ -162,6 +238,10 @@ function formPoint(out, f, sx, sy, u, round = true) {
     const s = Math.sin(roll);
     [ix, iy] = [c * ix - s * iy, s * ix + c * iy];
   }
+  // Tratten: bildrutan skalas efter var längs formen den ligger, som i lådan.
+  const w = f.taperBack + (f.taperFront - f.taperBack) * ((0.5 - u) * f.dir + 0.5);
+  ix *= w;
+  iy *= w;
   ix += ox;
   iy += oy;
   if (!f.bent) return out.set(ix, iy, (0.5 - u) * f.dir * f.depth);
@@ -238,7 +318,8 @@ class FormOutlines {
     this.ring(f, 1);
     // Med hopp eller fram och tillbaka ligger en tid på flera ställen; då ritas inga snitt.
     if (p.timeOn && p.timeCount <= MAX_OUTLINES && !hasTimeWarp(p)) {
-      for (const coord of planeCoords(p.timePosEffective - 0.5, p.timeCount)) this.ring(f, coord + 0.5);
+      const at = p.timeLoop ? p.timeAnchor : p.timePosEffective;
+      for (const coord of planeCoords(at - 0.5, p.timeCount)) this.ring(f, coord + 0.5);
     }
     let steps = f.bent ? Math.ceil((f.bend / TAU) * 96) + 4 : 1;
     if (f.twist || f.path) steps = Math.max(steps, 160);
@@ -273,14 +354,30 @@ export class VolumeBox {
       uContent: { value: 0 },
       uFrameStep: { value: 1 / 144 },
       uMotionGain: { value: 8 },
+      uMotionMist: { value: 0 },
       uBlend: { value: 0 },
       uDensity: { value: 0.7 },
       uAutoGain: { value: 1 },
       uLumWeight: { value: 0.35 },
       uShellFront: { value: 0.75 },
       uShellBack: { value: 0.6 },
+      uShellLeft: { value: 0.75 },
+      uShellRight: { value: 0.75 },
+      uShellTop: { value: 0.75 },
+      uShellBottom: { value: 0.75 },
+      uSizeFront: { value: 1 },
+      uSizeBack: { value: 1 },
       uBrightness: { value: 1.1 },
+      uExpFloor: { value: 0 },
+      uExpCeil: { value: 1 },
       uSaturation: { value: 0.9 },
+      uBgTex: { value: null },
+      uBgRemove: { value: 0 },
+      uBgThreshold: { value: 0.15 },
+      uTimeTint: { value: 0 },
+      uDepthVol: { value: null },
+      uDepthOn: { value: 0 },
+      uRelief: { value: 0 },
       uGlass: { value: 1 },
       uEdgeGlow: { value: 0.6 },
       uMaterial: { value: 0 },
@@ -289,9 +386,14 @@ export class VolumeBox {
       uGloss: { value: 1 },
       uClarity: { value: 0.6 },
       uTimeCount: { value: 1 },
+      uTimeLoop: { value: 0 },
+      uTimeAnchor: { value: 0 },
+      uSeamBlend: { value: 0.08 },
       uTimePos: { value: 0 },
       uTimeOpacity: { value: 0.92 },
-      uTimeFade: { value: 0.4 },
+      uTimeRestOpacity: { value: 0.55 },
+      uTimeFullOpacity: { value: 0.92 },
+      uTimeGradient: { value: 0 },
       uTimeFull: { value: 1 },
       uTimeCurve: { value: 1 },
       uSharpTol: { value: 0.004 },
@@ -301,7 +403,12 @@ export class VolumeBox {
       uSliceWave: { value: 0 },
       uSliceWaveWidth: { value: 0.3 },
       uTilt: { value: 0 },
+      uTiltV: { value: 0 },
+      uSliceW: { value: 1 },
+      uSliceH: { value: 1 },
       uXCount: { value: 1 },
+      uXFan: { value: 0 },
+      uXFanCenter: { value: 0.5 },
       uXPos: { value: 0.5 },
       uXOpacity: { value: 0.3 },
       uYCount: { value: 0 },
@@ -343,30 +450,45 @@ export class VolumeBox {
       uSeed: { value: 0 },
     };
 
-    const materialOptions = {
+    this.material = new THREE.ShaderMaterial({
       glslVersion: THREE.GLSL3,
       uniforms: this.uniforms,
+      vertexShader,
       fragmentShader,
       side: THREE.BackSide,
       transparent: true,
       premultipliedAlpha: true,
       depthWrite: false,
-    };
-    this.material = new THREE.ShaderMaterial({ ...materialOptions, vertexShader });
+    });
     this.formMaterial = new THREE.ShaderMaterial({
-      ...materialOptions,
+      glslVersion: THREE.GLSL3,
+      uniforms: this.uniforms,
       vertexShader: formVertexShader,
+      fragmentShader,
       defines: { FORM: '' },
+      side: THREE.BackSide,
+      transparent: true,
+      premultipliedAlpha: true,
+      depthWrite: false,
     });
 
-    const box = new THREE.BoxGeometry(1, 1, 1);
-    this.mesh = new THREE.Mesh(box, this.material);
+    // En neutral 1×1×1-djupkarta, så att uDepthVol alltid har något bundet.
+    this._dummyDepth = new THREE.Data3DTexture(new Uint8Array([128]), 1, 1, 1);
+    this._dummyDepth.format = THREE.RedFormat;
+    this._dummyDepth.type = THREE.UnsignedByteType;
+    this._dummyDepth.unpackAlignment = 1;
+    this._dummyDepth.needsUpdate = true;
+    this.uniforms.uDepthVol.value = this._dummyDepth;
+    this.hasBackground = false;
+
+    this.taper = { front: 1, back: 1 };
+    this.mesh = new THREE.Mesh(frustumGeometry(1, 1), this.material);
     this.mesh.frustumCulled = false;
-    this.edges = boxOutline(box, 0.3);
+    this.edges = boxOutline(this.mesh.geometry, 0.3);
     this.slices = [new SliceOutlines(0), new SliceOutlines(1), new SliceOutlines(2)];
     this.box.add(this.mesh, this.edges, ...this.slices.map((s) => s.lines));
 
-    this.formMesh = new THREE.Mesh(box, this.formMaterial);
+    this.formMesh = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), this.formMaterial);
     this.formMesh.frustumCulled = false;
     this.formMesh.visible = false;
     this.formLines = new FormOutlines();
@@ -379,6 +501,25 @@ export class VolumeBox {
     const old = this.uniforms.uVolume.value;
     if (old && old !== texture) old.dispose();
     this.uniforms.uVolume.value = texture;
+    // Bakgrunden och djupet hör till det gamla klippet och räknas om vid behov.
+    this.setBackground(null);
+    this.setDepthMap(null);
+  }
+
+  // Bakgrundsbilden (tidsmedianen) som borttagningen jämför mot.
+  setBackground(texture) {
+    const old = this.uniforms.uBgTex.value;
+    if (old && old !== texture) old.dispose();
+    this.uniforms.uBgTex.value = texture;
+    this.hasBackground = !!texture;
+  }
+
+  // AI-djupkartan: enkanalig 3D-textur i samma upplösning som volymen.
+  setDepthMap(texture) {
+    const old = this.uniforms.uDepthVol.value;
+    if (old && old !== texture && old !== this._dummyDepth) old.dispose();
+    this.uniforms.uDepthVol.value = texture || this._dummyDepth;
+    this.uniforms.uDepthOn.value = texture ? 1 : 0;
   }
 
   setVideo(texture) {
@@ -425,6 +566,164 @@ export class VolumeBox {
     this.uniforms.uScale.value.copy(s);
   }
 
+  // Skalet och ramen byggs om bara när storlekarna faktiskt ändras, inte varje bildruta.
+  _setTaper(front, back) {
+    if (front === this.taper.front && back === this.taper.back) return;
+    this.taper = { front, back };
+    this.uniforms.uSizeFront.value = front;
+    this.uniforms.uSizeBack.value = back;
+    const geometry = frustumGeometry(front, back);
+    this.mesh.geometry.dispose();
+    this.mesh.geometry = geometry;
+    this.edges.geometry.dispose();
+    this.edges.geometry = new THREE.EdgesGeometry(geometry);
+  }
+
+  // Anropas varje bildruta innan rendering.
+  update(camera, p) {
+    const u = this.uniforms;
+
+    // Special: lådan behåller sin fulla bredd. Vridna ögonblick sträcker sig
+    // från vägg till vägg och kapas av fram- och baksidan.
+    const s = this.size;
+    const cosT = Math.cos(p.tilt || 0);
+    const sinT = Math.sin(p.tilt || 0);
+    this.box.scale.copy(s);
+    u.uScale.value.copy(s);
+    u.uSliceW.value = s.x;
+    u.uSliceH.value = s.y;
+
+    u.uSteps.value = p.steps;
+    u.uTimeDir.value = p.flipTime ? -1 : 1;
+    u.uContent.value = p.content;
+    u.uMotionGain.value = p.motionGain;
+    u.uMotionMist.value = p.motionMist;
+    u.uBlend.value = p.blend;
+    u.uDensity.value = p.density;
+    u.uLumWeight.value = p.lumWeight;
+    u.uShellFront.value = p.shellFront;
+    u.uShellBack.value = p.shellBack;
+    u.uShellLeft.value = p.shellLeft;
+    u.uShellRight.value = p.shellRight;
+    u.uShellTop.value = p.shellTop;
+    u.uShellBottom.value = p.shellBottom;
+    // Tratten: bara förhållandet mellan fram och bak syns, så den större änden
+    // normeras till lådans fulla storlek.
+    const taperMax = Math.max(p.sizeFront, p.sizeBack);
+    const taperFront = p.sizeFront / taperMax;
+    const taperBack = p.sizeBack / taperMax;
+    this._setTaper(taperFront, taperBack);
+    u.uBrightness.value = p.brightness;
+    u.uExpFloor.value = p.expFloor;
+    u.uExpCeil.value = p.expCeil;
+    u.uSaturation.value = p.saturation;
+    u.uBgRemove.value = p.bgRemove && this.hasBackground ? 1 : 0;
+    u.uBgThreshold.value = p.bgThreshold;
+    u.uTimeTint.value = p.timeTint;
+    u.uRelief.value = p.depthRelief;
+    u.uGlass.value = p.glass;
+    u.uEdgeGlow.value = p.edgeGlow;
+    u.uMaterial.value = p.material;
+    u.uIso.value = p.liquidLevel;
+    u.uSoft.value = p.liquidSoft;
+    u.uGloss.value = p.liquidGloss;
+    u.uClarity.value = p.liquidClarity;
+    u.uTimeCount.value = p.timeOn ? p.timeCount : 0;
+    u.uTimeLoop.value = p.timeLoop ? 1 : 0;
+    u.uTimeAnchor.value = p.timeAnchor;
+    u.uSeamBlend.value = p.timeSeam;
+    u.uTimePos.value = p.timePosEffective;
+    u.uTimeOpacity.value = p.timeOpacity;
+    u.uTimeRestOpacity.value = p.timeRestOpacity;
+    u.uTimeFullOpacity.value = p.timeFullOpacity;
+    u.uTimeGradient.value = p.timeGradient;
+    u.uTimeFull.value = p.timeFull;
+    u.uTimeCurve.value = p.timeCurve;
+    u.uWave.value = p.wave;
+    u.uWaveWidth.value = p.waveWidth;
+    u.uEdgeFade.value = p.edgeFade;
+    u.uSliceWave.value = p.sliceWave;
+    u.uSliceWaveWidth.value = p.sliceWaveWidth;
+    u.uTilt.value = p.tilt;
+    u.uTiltV.value = p.tiltV;
+    u.uXCount.value = p.xCount;
+    u.uXFan.value = p.xFan ? 1 : 0;
+    u.uXFanCenter.value = p.xFanCenter;
+    u.uXPos.value = p.xPosEffective;
+    u.uYCount.value = p.yCount;
+    u.uXOpacity.value = p.xOpacity;
+    u.uYPos.value = p.yPosEffective;
+    u.uYOpacity.value = p.yOpacity;
+    u.uPrism.value = p.prism;
+    u.uPrismReach.value = p.prismReach;
+    u.uPrismSpread.value = p.prismSpread;
+    u.uPrismView.value = p.prismView;
+
+    this.group.updateMatrixWorld();
+    const f = this.configureForm(p);
+    this.box.visible = !f.active;
+    this.formMesh.visible = f.active;
+    this.formLines.lines.visible = f.active && p.lines > 0;
+    if (f.active) {
+      this._updateForm(camera, p, f);
+      this._styleLines(p);
+      return;
+    }
+
+    _camLocal.copy(camera.position);
+    this.box.worldToLocal(_camLocal);
+    u.uCamPos.value.copy(_camLocal);
+
+    const dir = p.flipTime ? -1 : 1;
+    const taper = taperFront === taperBack && taperFront === 1
+      ? null
+      : { front: taperFront, back: taperBack };
+    if (p.xFan && p.xCount > 0) {
+      // Solfjäderns bladvinklar: hela varvet är ett halvt varv, eftersom
+      // bladen går genom axeln och täcker båda sidor.
+      const angles = [];
+      for (let k = 0; k < Math.min(p.xCount, 16); k++) {
+        angles.push(p.xPosEffective * Math.PI + (k * Math.PI) / p.xCount);
+      }
+      this.slices[0].update(angles, null, null, {
+        sx: s.x,
+        sz: s.z,
+        z0: 0.5 - p.xFanCenter,
+      });
+    } else {
+      this.slices[0].update(planeCoords(p.xPosEffective - 0.5, p.xCount), null, taper);
+    }
+    this.slices[1].update(planeCoords(p.yPosEffective - 0.5, p.yCount), null, taper);
+    // Så mycket av snittets halva bredd som ryms i den avsmalnade lådan.
+    // Snittets båda vinklar till konturerna: vridning i sidled och lutning i
+    // höjdled. Spannen räknas där, fram till väggar, golv och tak.
+    const tiltInfo = (p.tilt || p.tiltV) ? {
+      ca: cosT,
+      sa: sinT,
+      cb: Math.cos(p.tiltV || 0),
+      sb: Math.sin(p.tiltV || 0),
+      sx: s.x,
+      sy: s.y,
+      sz: s.z,
+    } : null;
+    this.slices[2].update(
+      planeCoords((0.5 - (p.timeLoop ? p.timeAnchor : p.timePosEffective)) * dir,
+        p.timeOn ? p.timeCount : 0),
+      tiltInfo,
+      taper,
+    );
+
+    this._styleLines(p);
+  }
+
+  _styleLines(p) {
+    this.edges.visible = p.lines > 0;
+    for (const lines of [this.edges, ...this.slices.map((s) => s.lines), this.formLines.lines]) {
+      lines.material.opacity = p.lines;
+      if (p.lines <= 0) lines.visible = false;
+    }
+  }
+
   /** Räknar ut formen ur inställningarna. Axeln läggs så att formen i vila hamnar mitt i bild. */
   configureForm(p) {
     const f = this.form;
@@ -438,6 +737,10 @@ export class VolumeBox {
     f.bend = f.bent ? p.bend * DEG : 0;
     f.round = p.formRound;
     f.twist = p.formTwist * DEG;
+    // Tratten under Volym gäller formen också: bara förhållandet fram/bak syns.
+    const taperMax = Math.max(p.sizeFront, p.sizeBack);
+    f.taperFront = p.sizeFront / taperMax;
+    f.taperBack = p.sizeBack / taperMax;
 
     const a = p.bendAxis * DEG;
     f.axis.set(Math.sin(a), Math.cos(a), 0);
@@ -511,82 +814,12 @@ export class VolumeBox {
     return points;
   }
 
-  // Anropas varje bildruta innan rendering.
-  update(camera, p) {
-    const u = this.uniforms;
-    u.uSteps.value = p.steps;
-    u.uTimeDir.value = p.flipTime ? -1 : 1;
-    u.uContent.value = p.content;
-    u.uMotionGain.value = p.motionGain;
-    u.uBlend.value = p.blend;
-    u.uDensity.value = p.density;
-    u.uLumWeight.value = p.lumWeight;
-    u.uShellFront.value = p.shellFront;
-    u.uShellBack.value = p.shellBack;
-    u.uBrightness.value = p.brightness;
-    u.uSaturation.value = p.saturation;
-    u.uGlass.value = p.glass;
-    u.uEdgeGlow.value = p.edgeGlow;
-    u.uMaterial.value = p.material;
-    u.uIso.value = p.liquidLevel;
-    u.uSoft.value = p.liquidSoft;
-    u.uGloss.value = p.liquidGloss;
-    u.uClarity.value = p.liquidClarity;
-    u.uTimeCount.value = p.timeOn ? p.timeCount : 0;
-    u.uTimePos.value = p.timePosEffective;
-    u.uTimeOpacity.value = p.timeOpacity;
-    u.uTimeFade.value = p.timeFade;
-    u.uTimeFull.value = p.timeFull;
-    u.uTimeCurve.value = p.timeCurve;
-    u.uWave.value = p.wave;
-    u.uWaveWidth.value = p.waveWidth;
-    u.uEdgeFade.value = p.edgeFade;
-    u.uSliceWave.value = p.sliceWave;
-    u.uSliceWaveWidth.value = p.sliceWaveWidth;
-    u.uTilt.value = p.tilt;
-    u.uXCount.value = p.xCount;
-    u.uXPos.value = p.xPosEffective;
-    u.uYCount.value = p.yCount;
-    u.uXOpacity.value = p.xOpacity;
-    u.uYPos.value = p.yPosEffective;
-    u.uYOpacity.value = p.yOpacity;
-    u.uPrism.value = p.prism;
-    u.uPrismReach.value = p.prismReach;
-    u.uPrismSpread.value = p.prismSpread;
-    u.uPrismView.value = p.prismView;
-
-    this.group.updateMatrixWorld();
-    const f = this.configureForm(p);
-    this.box.visible = !f.active;
-    this.formMesh.visible = f.active;
-    this.formLines.lines.visible = f.active && p.lines > 0;
-
-    if (f.active) {
-      this._updateForm(camera, p, f);
-    } else {
-      _camLocal.copy(camera.position);
-      this.box.worldToLocal(_camLocal);
-      u.uCamPos.value.copy(_camLocal);
-
-      const dir = p.flipTime ? -1 : 1;
-      this.slices[0].update(planeCoords(p.xPosEffective - 0.5, p.xCount));
-      this.slices[1].update(planeCoords(p.yPosEffective - 0.5, p.yCount));
-      this.slices[2].update(
-        planeCoords((0.5 - p.timePosEffective) * dir, p.timeOn ? p.timeCount : 0),
-      );
-    }
-
-    this.edges.visible = p.lines > 0;
-    for (const lines of [this.edges, ...this.slices.map((s) => s.lines), this.formLines.lines]) {
-      lines.material.opacity = p.lines;
-      if (p.lines <= 0) lines.visible = false;
-    }
-  }
-
   _updateForm(camera, p, f) {
     const u = this.uniforms;
     // Följer formen tidssnittet snurrar den runt axeln så att bildrutan som spelas står still.
-    f.spin = f.bent && p.followSlice ? (p.timePosEffective - 0.5) * f.bend * f.dir : 0;
+    // I loopläget står bildrutan som spelas still vid ankaret, så då står formen också still.
+    const at = p.timeLoop ? p.timeAnchor : p.timePosEffective;
+    f.spin = f.bent && p.followSlice ? (at - 0.5) * f.bend * f.dir : 0;
 
     formBounds(_box, f);
     _box.expandByScalar(_box.getSize(_v).length() * 0.01 + 0.01);
