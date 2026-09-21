@@ -39,6 +39,9 @@ const BASE = {
   yCount: 0, yPos: 0.5, ySweep: false, yOpacity: 0.3, axisOpacity: 0.3,
   speed: 1, followSlice: true, motion: 'free', motionSpeed: 0.5, fov: 32, background: '#000000',
   format: '1080x1080', fps: 30, bitrate: 16, audio: true, loops: 1,
+  bend: 0, bendCenter: 1, bendAxis: 0, bendPitch: 0, formRound: 0, formTwist: 0,
+  warpAmount: 0, warpRate: 3, warpVariation: 0, warpSpeed: 0, jumpAmount: 0, jumpLength: 0.5,
+  pathX: 0, pathY: 0, pathSpin: 0, pathSoft: 0.6, pathSpeed: 0, seed: 1,
 };
 
 // Ordningen bestämmer varje fälts nummer i koden. Lägg bara till nya fält sist.
@@ -99,6 +102,24 @@ const FIELDS = [
   ['special', 'b'],
   ['specialReverse', 'b'],
   ['specialAmount', 'f1', 0, 1.5, 0.01],
+  ['bend', 'i2'],
+  ['bendCenter', 'f2', 0, 8, 0.01],
+  ['bendAxis', 'i1'],
+  ['bendPitch', 'f2', 0, 4, 0.01],
+  ['formRound', 'f1', 0, 1, 0.01],
+  ['formTwist', 'f2', -720, 720, 1],
+  ['warpAmount', 'f1', 0, 0.5, 0.005],
+  ['warpRate', 'f1', 0.5, 12, 0.1],
+  ['warpVariation', 'f1', 0, 1, 0.01],
+  ['warpSpeed', 'f1', 0, 2, 0.01],
+  ['jumpAmount', 'f1', 0, 1, 0.01],
+  ['jumpLength', 'f1', 0.1, 5, 0.05],
+  ['pathX', 'f2', 0, 3, 0.01],
+  ['pathY', 'f2', 0, 3, 0.01],
+  ['pathSpin', 'i2'],
+  ['pathSoft', 'f1', 0, 1, 0.01],
+  ['pathSpeed', 'f1', 0, 2, 0.01],
+  ['seed', 'i2'],
 ];
 
 // Crockford base32: inga tecken som går att blanda ihop (I, L, O, U saknas),

@@ -114,7 +114,7 @@ export function buildPanel(root, sections, params, defaults, onChange) {
         const button = el('button', {
           type: 'button',
           id: b.id,
-          class: b.primary ? 'btn btn-primary' : 'btn',
+          class: ['btn', b.primary && 'btn-primary', item.small && 'btn-small'].filter(Boolean).join(' '),
         }, b.label);
         button.addEventListener('click', b.action);
         return button;

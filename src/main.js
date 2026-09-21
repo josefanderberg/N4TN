@@ -1,7 +1,7 @@
 import './style.css';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { VolumeBox } from './volume.js';
+import { VolumeBox, hasForm, hasPath, isBent } from './volume.js';
 import { CancelledError, extractFrames, makeDemoVolume } from './frames.js';
 import { buildPanel } from './ui.js';
 import { CanvasRecorder, downloadBlob, pickMimeType } from './recorder.js';
@@ -34,6 +34,25 @@ const DEFAULTS = {
   depth: 1.3,
   flipTime: false,
   steps: 200,
+
+  bend: 0,
+  bendCenter: 1,
+  bendAxis: 0,
+  bendPitch: 0,
+  formRound: 0,
+  formTwist: 0,
+  warpAmount: 0,
+  warpRate: 3,
+  warpVariation: 0,
+  warpSpeed: 0,
+  jumpAmount: 0,
+  jumpLength: 0.5,
+  pathX: 0,
+  pathY: 0,
+  pathSpin: 0,
+  pathSoft: 0.6,
+  pathSpeed: 0,
+  seed: 1,
 
   timeOn: true,
   timeCount: 1,
@@ -99,7 +118,7 @@ function saveParams() {
 const params = loadParams();
 
 // Rent utseende i panelen, inget som hör till bilden och sparas därför inte.
-const ui = { sliceTab: 'time', waveTab: 'played' };
+const ui = { sliceTab: 'time', waveTab: 'played', volumeTab: 'build' };
 
 function loadPresets() {
   try {
@@ -146,6 +165,8 @@ const state = {
   muted: false,
   demoTime: 0,
   sweepTime: 0,
+  warpClock: 0,
+  pathClock: 0,
   builtWith: null,
 };
 
@@ -211,36 +232,46 @@ const VIEW_ELEVATION = THREE.MathUtils.degToRad(17);
 const _dir = new THREE.Vector3();
 const _right = new THREE.Vector3();
 const _up = new THREE.Vector3();
-const _corner = new THREE.Vector3();
 
-// Placerar kameran så att hela lådan precis får plats i bilden, oavsett bildformat.
-function fitCamera() {
-  const size = volume.size;
-  _dir.set(
-    Math.sin(VIEW_AZIMUTH) * Math.cos(VIEW_ELEVATION),
-    Math.sin(VIEW_ELEVATION),
-    Math.cos(VIEW_AZIMUTH) * Math.cos(VIEW_ELEVATION),
-  ).normalize();
-  _right.set(0, 1, 0).cross(_dir).normalize();
-  _up.crossVectors(_dir, _right).normalize();
-
-  let maxRight = 0;
-  let maxUp = 0;
-  let maxDepth = 0;
-  for (let i = 0; i < 8; i++) {
-    _corner.set(
-      (i & 1 ? 0.5 : -0.5) * size.x,
-      (i & 2 ? 0.5 : -0.5) * size.y,
-      (i & 4 ? 0.5 : -0.5) * size.z,
-    );
-    maxRight = Math.max(maxRight, Math.abs(_corner.dot(_right)));
-    maxUp = Math.max(maxUp, Math.abs(_corner.dot(_up)));
-    maxDepth = Math.max(maxDepth, _corner.dot(_dir));
+// Placerar kameran så att hela formen precis får plats i bilden, oavsett bildformat.
+// Med keepDirection behålls vinkeln kameran har nu och bara avståndet ändras.
+function fitCamera(keepDirection = false) {
+  const points = volume.fitPoints(params);
+  _dir.copy(camera.position).sub(controls.target);
+  if (keepDirection && _dir.lengthSq() > 1e-8) {
+    _dir.normalize();
+  } else {
+    _dir.set(
+      Math.sin(VIEW_AZIMUTH) * Math.cos(VIEW_ELEVATION),
+      Math.sin(VIEW_ELEVATION),
+      Math.cos(VIEW_AZIMUTH) * Math.cos(VIEW_ELEVATION),
+    ).normalize();
   }
+  _right.set(0, 1, 0).cross(_dir);
+  if (_right.lengthSq() < 1e-6) _right.set(1, 0, 0);
+  _right.normalize();
+  _up.crossVectors(_dir, _right).normalize();
 
   const tanV = Math.tan(THREE.MathUtils.degToRad(params.fov) / 2);
   const tanH = tanV * camera.aspect;
-  const distance = Math.max(maxRight / tanH, maxUp / tanV) * 1.1 + maxDepth;
+  let distance = 0;
+  if (hasForm(params)) {
+    // Varje punkt ska hamna innanför bildens kant sett från kameran.
+    for (const c of points) {
+      const need = Math.max(Math.abs(c.dot(_right)) / tanH, Math.abs(c.dot(_up)) / tanV);
+      distance = Math.max(distance, c.dot(_dir) + need * 1.1);
+    }
+  } else {
+    let maxRight = 0;
+    let maxUp = 0;
+    let maxDepth = 0;
+    for (const c of points) {
+      maxRight = Math.max(maxRight, Math.abs(c.dot(_right)));
+      maxUp = Math.max(maxUp, Math.abs(c.dot(_up)));
+      maxDepth = Math.max(maxDepth, c.dot(_dir));
+    }
+    distance = Math.max(maxRight / tanH, maxUp / tanV) * 1.1 + maxDepth;
+  }
 
   controls.target.set(0, 0, 0);
   camera.position.copy(_dir).multiplyScalar(distance);
@@ -298,8 +329,9 @@ function updateCamera(dt) {
 // Kameran kan åka med tidssnittet genom lådan. Mål och kamera flyttas lika
 // mycket, så avståndet och vinkeln till snittet är oförändrade; när klippet
 // börjar om hoppar snittet tillbaka till framkanten och kameran med det.
+// En böjd form följer i stället genom att snurra runt sin axel, se volume.js.
 function followSlice(timePos) {
-  const desired = params.followSlice
+  const desired = params.followSlice && !isBent(params)
     ? (0.5 - timePos) * (params.flipTime ? -1 : 1) * volume.size.z
     : 0;
   const delta = desired - controls.target.z;
@@ -311,7 +343,7 @@ function followSlice(timePos) {
 // Special: djupsnitten vrids mot kamerans vinkel kring mittpunkten, så att de
 // står på diagonalen men behåller sin ordning genom lådan.
 function tiltFromCamera() {
-  if (!params.special) return 0;
+  if (!params.special || hasForm(params)) return 0;
   const azimuth = Math.atan2(
     camera.position.x - controls.target.x,
     camera.position.z - controls.target.z,
@@ -326,6 +358,10 @@ const timer = new THREE.Timer();
 timer.connect(document);
 const frameParams = { ...params };
 
+function clipDuration() {
+  return state.hasVideo && video.duration ? video.duration : DEMO_DURATION;
+}
+
 function currentTimeFraction() {
   if (state.hasVideo) {
     return video.duration ? THREE.MathUtils.clamp(video.currentTime / video.duration, 0, 1) : 0;
@@ -338,8 +374,13 @@ function tick(timestamp) {
   const dt = Math.min(timer.getDelta(), 0.1);
   if (!state.hasVideo) state.demoTime += dt;
   if (params.xSweep || params.ySweep) state.sweepTime += dt * 0.5;
+  state.warpClock += dt * params.warpSpeed;
+  state.pathClock += dt * params.pathSpeed;
 
   Object.assign(frameParams, params);
+  frameParams.warpPhase = state.warpClock * Math.PI * 2;
+  frameParams.pathPhase = state.pathClock * Math.PI * 2;
+  frameParams.jumpPieces = jumpPieces();
   frameParams.timePosEffective = params.timeFollow ? currentTimeFraction() : params.timePos;
   followSlice(frameParams.timePosEffective);
   updateCamera(dt);
@@ -506,6 +547,7 @@ async function buildVolume() {
     state.builtWith = settings;
     volume.setExposure(built.meanLuma);
     updateVolumeInfo();
+    updateJumpInfo();
   } catch (err) {
     if (!(err instanceof CancelledError)) showError(err);
   } finally {
@@ -919,6 +961,41 @@ function renderPresets(row) {
 // --- Panel ---------------------------------------------------------------
 
 const noVideo = () => !state.hasVideo;
+const onVolumeTab = (tab) => () => ui.volumeTab === tab;
+
+// Snabbval under Form. Alla utgår från FORM_BASE, så att ett val inte ärver
+// något från det förra.
+const FORM_BASE = {
+  bend: 0, bendCenter: 1, bendAxis: 0, bendPitch: 0, formRound: 0, formTwist: 0,
+};
+const FORM_PRESETS = {
+  Låda: {},
+  Cylinder: { bend: 360, bendCenter: 1, bendAxis: 90 },
+  Donut: { bend: 360, bendCenter: 2.2, formRound: 1 },
+  Boll: { bend: 180, bendCenter: 0, formRound: 1 },
+  Spiral: { bend: 1080, bendCenter: 1.6, bendPitch: 1.1, formRound: 0.5 },
+};
+
+// Ändringar som ger formen en annan storlek; då flyttas kameran så att den ryms.
+const FORM_KEYS = new Set([
+  'bend', 'bendCenter', 'bendAxis', 'bendPitch', 'formRound', 'formTwist',
+  'pathX', 'pathY', 'pathSpin', 'pathSoft', 'seed', 'form', '*',
+]);
+
+function newSeed() {
+  params.seed = (params.seed + 1 + Math.floor(Math.random() * 998)) % 1000;
+  onParamChange('seed');
+}
+
+// Hur många bitar klippet delas i när tiden hoppar.
+function jumpPieces() {
+  return Math.min(256, Math.max(1, Math.round(clipDuration() / params.jumpLength)));
+}
+
+function updateJumpInfo() {
+  const note = $('jump-info');
+  if (note) note.textContent = `Klippet delas i ${jumpPieces()} bitar som var och en visar en bit ur en annan del av klippet.`;
+}
 const volumeUpToDate = () =>
   !!state.builtWith &&
   state.builtWith.frames === params.frames &&
@@ -934,16 +1011,80 @@ const sections = [
   {
     title: 'Volym',
     accent: '#7fd4c1',
-    hint: 'Hur många bildrutor lådan byggs av, och hur djup den blir.',
+    hint: 'Hur många bildrutor lådan byggs av, och vilken form tiden tar i rummet.',
     items: [
-      { type: 'number', key: 'frames', label: 'Bildrutor', min: 2, max: 512, step: 1 },
-      { type: 'number', key: 'size', label: 'Upplösning (px)', min: 32, max: 720, step: 1 },
-      { type: 'note', id: 'volume-info', text: '' },
+      { type: 'tabs',
+        tabs: [['build', 'Bildrutor'], ['form', 'Form'], ['path', 'Bana'], ['time', 'Tid']],
+        get: () => ui.volumeTab,
+        set: (value) => { ui.volumeTab = value; } },
+
+      { type: 'number', key: 'frames', label: 'Bildrutor', min: 2, max: 512, step: 1,
+        visible: onVolumeTab('build') },
+      { type: 'number', key: 'size', label: 'Upplösning (px)', min: 32, max: 720, step: 1,
+        visible: onVolumeTab('build') },
+      { type: 'note', id: 'volume-info', text: '', visible: onVolumeTab('build') },
       { type: 'buttons', buttons: [
         { label: 'Bygg om volym', id: 'rebuild-btn', action: () => buildVolume() },
-      ], disabled: () => noVideo() || state.building || volumeUpToDate() },
-      { type: 'range', key: 'depth', label: 'Djup (tid)', min: 0.2, max: 50, step: 0.05 },
-      { type: 'checkbox', key: 'flipTime', label: 'Vänd tidsriktning' },
+      ], visible: onVolumeTab('build'),
+      disabled: () => noVideo() || state.building || volumeUpToDate() },
+      { type: 'range', key: 'depth', label: 'Djup (tid)', min: 0.2, max: 50, step: 0.05,
+        visible: onVolumeTab('build'), disabled: (p) => isBent(p) },
+      { type: 'note', text: 'Djupet gäller inte när bilden är böjd runt en axel — då bestämmer vinkeln under Form.',
+        visible: (p) => ui.volumeTab === 'build' && isBent(p) },
+      { type: 'checkbox', key: 'flipTime', label: 'Vänd tidsriktning', visible: onVolumeTab('build') },
+
+      { type: 'buttons', small: true, visible: onVolumeTab('form'),
+        buttons: Object.entries(FORM_PRESETS).map(([label, values]) => ({
+          label,
+          action: () => {
+            Object.assign(params, FORM_BASE, values);
+            onParamChange('form');
+          },
+        })) },
+      { type: 'range', key: 'bend', label: 'Böj runt axel (grader)', min: 0, max: 1080, step: 1,
+        visible: onVolumeTab('form') },
+      { type: 'range', key: 'bendCenter', label: 'Centrum', min: 0, max: 8, step: 0.01,
+        visible: onVolumeTab('form'), disabled: (p) => !isBent(p) },
+      { type: 'note', text: '0 = axeln mitt i bilden, 1 = vid bildens kant, över 1 = utanför, så att det blir ett hål i mitten.',
+        visible: (p) => ui.volumeTab === 'form' && isBent(p) },
+      { type: 'range', key: 'bendAxis', label: 'Axelns vinkel', min: 0, max: 180, step: 1,
+        visible: onVolumeTab('form'), disabled: (p) => !isBent(p) },
+      { type: 'range', key: 'bendPitch', label: 'Spiral', min: 0, max: 4, step: 0.01,
+        visible: onVolumeTab('form'), disabled: (p) => !isBent(p) },
+      { type: 'range', key: 'formRound', label: 'Rundning', min: 0, max: 1, step: 0.01,
+        visible: onVolumeTab('form') },
+      { type: 'range', key: 'formTwist', label: 'Vridning (grader)', min: -720, max: 720, step: 1,
+        visible: onVolumeTab('form') },
+
+      { type: 'range', key: 'pathX', label: 'Åt sidorna', min: 0, max: 3, step: 0.01,
+        visible: onVolumeTab('path') },
+      { type: 'range', key: 'pathY', label: 'Upp och ner', min: 0, max: 3, step: 0.01,
+        visible: onVolumeTab('path') },
+      { type: 'range', key: 'pathSpin', label: 'Snurra (grader)', min: 0, max: 360, step: 1,
+        visible: onVolumeTab('path') },
+      { type: 'range', key: 'pathSoft', label: 'Mjukhet', min: 0, max: 1, step: 0.01,
+        visible: onVolumeTab('path'), disabled: (p) => !hasPath(p) },
+      { type: 'range', key: 'pathSpeed', label: 'Rörelse', min: 0, max: 2, step: 0.01,
+        visible: onVolumeTab('path'), disabled: (p) => !hasPath(p) },
+      { type: 'buttons', buttons: [{ label: 'Ny slump', action: () => newSeed() }],
+        visible: onVolumeTab('path'), disabled: (p) => !hasPath(p) },
+
+      { type: 'range', key: 'warpAmount', label: 'Fram och tillbaka', min: 0, max: 0.5, step: 0.005,
+        visible: onVolumeTab('time') },
+      { type: 'range', key: 'warpRate', label: 'Takt', min: 0.5, max: 12, step: 0.1,
+        visible: onVolumeTab('time'), disabled: (p) => p.warpAmount <= 0 },
+      { type: 'range', key: 'warpVariation', label: 'Oregelbundenhet', min: 0, max: 1, step: 0.01,
+        visible: onVolumeTab('time'), disabled: (p) => p.warpAmount <= 0 },
+      { type: 'range', key: 'warpSpeed', label: 'Rörelse', min: 0, max: 2, step: 0.01,
+        visible: onVolumeTab('time'), disabled: (p) => p.warpAmount <= 0 },
+      { type: 'range', key: 'jumpAmount', label: 'Hoppa i tiden', min: 0, max: 1, step: 0.01,
+        visible: onVolumeTab('time') },
+      { type: 'range', key: 'jumpLength', label: 'Bitarnas längd (s)', min: 0.1, max: 5, step: 0.05,
+        visible: onVolumeTab('time'), disabled: (p) => p.jumpAmount <= 0 },
+      { type: 'note', id: 'jump-info', text: '', visible: (p) => ui.volumeTab === 'time' && p.jumpAmount > 0 },
+      { type: 'buttons', buttons: [{ label: 'Ny slump', action: () => newSeed() }],
+        visible: onVolumeTab('time'),
+        disabled: (p) => p.jumpAmount <= 0 && (p.warpAmount <= 0 || p.warpVariation <= 0) },
     ],
   },
   {
@@ -1045,11 +1186,14 @@ const sections = [
     accent: '#ff7ad9',
     hint: 'Vrider djupsnitten mot kameravinkeln, så att de står på diagonalen.',
     items: [
-      { type: 'checkbox', key: 'special', label: 'Vrid snitten efter kameran' },
+      { type: 'checkbox', key: 'special', label: 'Vrid snitten efter kameran',
+        disabled: (p) => hasForm(p) },
       { type: 'checkbox', key: 'specialReverse', label: 'Motsatt håll',
-        disabled: (p) => !p.special },
+        disabled: (p) => !p.special || hasForm(p) },
       { type: 'range', key: 'specialAmount', label: 'Hur mycket', min: 0, max: 1.5, step: 0.01,
-        disabled: (p) => !p.special },
+        disabled: (p) => !p.special || hasForm(p) },
+      { type: 'note', text: 'Gäller bara den raka lådan, inte när en form under Volym är på.',
+        visible: (p) => hasForm(p) },
     ],
   },
   {
@@ -1124,6 +1268,8 @@ function applyValues(values) {
 function onParamChange(key) {
   if (key === 'frames' || key === 'size' || key === '*') updateVolumeInfo();
   if (key === 'depth' || key === '*') volume.setDepth(params.depth);
+  if (FORM_KEYS.has(key)) fitCamera(true);
+  updateJumpInfo();
   if (key === 'format' || key === '*') layout();
   if (key === 'motion' || key === '*') anchorMotion();
   saveParams();
@@ -1155,6 +1301,8 @@ resetBtn.addEventListener('click', () => {
 volume.setDepth(params.depth);
 applyMute();
 updateVolumeInfo();
+updateJumpInfo();
+fitCamera();
 
 // En länk med #k=<kod> öppnar delade inställningar direkt.
 const sharedCode = location.hash.slice(1).replace(/^k=/, '');

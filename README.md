@@ -40,12 +40,54 @@ Allt körs lokalt i webbläsaren. Ingen fil laddas upp någonstans.
 | Grupp | Vad det gör |
 | --- | --- |
 | **Sparade inställningar** | Namngivna uppsättningar av alla reglage: spara, hämta tillbaka, ta bort. Samt en kort kod för att dela eller flytta en uppsättning. |
-| **Volym** | Antal bildrutor och upplösning i 3D-texturen — fria tal, skriv vad du vill (2–512 bildrutor, 32–720 px). Djupet går till 50, vilket drar ut lådan till en lång korridor. Raden under visar vad valet kostar i minne. Ändring kräver **Bygg om volym**. Här finns också lådans djup och tidsriktning. |
+| **Volym** | Fyra flikar. **Bildrutor**: antal bildrutor och upplösning i 3D-texturen — fria tal, skriv vad du vill (2–512 bildrutor, 32–720 px). Djupet går till 50, vilket drar ut lådan till en lång korridor. Raden under visar vad valet kostar i minne. Ändring kräver **Bygg om volym**. Här finns också lådans djup och tidsriktning. **Form**, **Bana** och **Tid** böjer, slingrar och klipper om tiden, se nedan. |
 | **Utseende** | Innehåll (bild/rörelse), blandning, densitet, toning vid klippets ändar, hur mycket ytorna syns, ljusstyrka, mättnad, glasreflex, kantglöd, kantlinjer, renderingskvalitet och bakgrundsfärg. |
 | **Snitt** | En flik per riktning: djupled (tiden), sidled (X) och höjdled (Y). Varje flik har antal, position, automatiskt svep och egen opacitet. Antalet går till 256 och styr hur många plan som läggs ut med jämna mellanrum; 0 stänger av riktningen och gråar ut resten av flikens reglage. |
 | **Special** | Vrider djupsnitten mot kameravinkeln, med håll och styrka. |
 | **Kamera** | Följ tidssnittet, fri musstyrning, pendel eller rotation, hastighet och brännvidd. |
 | **Export** | Bildformat (1:1, 4:5, 9:16, 16:9), bildfrekvens, kvalitet, antal varv och om ljudet ska med. |
+
+### Formen
+
+Under **Volym → Form** kan bildrutorna läggas i en cirkel i stället för rakt bakåt.
+**Böj runt axel** är hur många grader klippet täcker runt axeln: 0 är den vanliga lådan,
+360 ett helt varv och upp till 1080 tre varv. **Centrum** är var axeln sitter i förhållande
+till bilden: 0 mitt i bilden, 1 vid bildens kant och över 1 utanför, så att det blir ett hål i
+mitten. **Axelns vinkel** vrider axeln från lodrät (0) till vågrät (90). **Spiral** låter
+varven stiga längs axeln, mätt i bildhöjder per varv. **Rundning** gör bildens rektangel till
+en ellips, och **Vridning** vrider bildrutorna kring sin egen mitt längs klippet.
+
+Snabbvalen ger utgångslägen att skruva vidare på:
+
+* **Cylinder** — ett helt varv med axeln vid bildens kant, vågrät, så att bildrutorna hänger
+  från axeln som bladen i en rolodex.
+* **Donut** — ett helt varv med axeln utanför bilden och full rundning.
+* **Boll** — ett halvt varv med axeln mitt i bilden och full rundning. Bollen får bildens
+  proportioner, så en 16:9-video ger en tillplattad boll.
+* **Spiral** — tre varv som stiger längs axeln.
+
+Med **Följ tidssnittet** påslaget snurrar en böjd form runt sin axel i stället för att
+kameran åker, så att bildrutan som spelas står still och resten av formen vandrar förbi. Ett
+helt varv går därför runt sömlöst när klippet börjar om. Djupet under Bildrutor gäller inte
+när formen är böjd, och Special gäller bara den raka lådan.
+
+### Bana
+
+**Volym → Bana** låter bildrutorna vandra i stället för att gå rakt: **Åt sidorna** och
+**Upp och ner** är hur långt (i halva bildbredder och bildhöjder), **Snurra** hur mycket de
+vrider sig fram och tillbaka. **Mjukhet** styr hur lugnt banan slingrar, och **Rörelse** får
+den att röra sig över tid. **Ny slump** ger en annan bana. Allt fungerar ihop med formerna,
+så en donut kan slingra och en spiral snurra.
+
+### Tid
+
+**Volym → Tid** gör tiden olinjär längs formen. **Fram och tillbaka** låter tiden gå
+växelvis framåt och bakåt: värdet är hur långt tillbaka varje sväng går, **Takt** hur många
+svängar det blir, **Oregelbundenhet** gör svängarna olika långa och **Rörelse** får mönstret
+att vandra. **Hoppa i tiden** delar formen i bitar, var och en med en lika lång bit ur en
+annan del av klippet — 0,5 sekunder här, 0,5 sekunder där. **Bitarnas längd** anges i
+sekunder, och hoppar ska de från 0 (i ordning) till 1 (helt utspridda). När en tid finns på
+flera ställen visas tidssnittet på alla dem.
 
 ### Innehåll
 
@@ -166,6 +208,10 @@ renderingen i bakgrundsflikar. Filen laddas ned som MP4 om webbläsaren stödjer
 2. `src/shaders.js` strålmarscherar genom lådan i objektrymden: bildrutorna vägs ihop enligt
    valt blandningsläge, snitten komponeras in där strålen korsar dem, och ytorna vägs med
    siktvinkeln så att lådan blir genomskinlig rakt framifrån men tät i sned vinkel — som glas.
+   När en form är på används en andra väg i samma shader: för varje punkt räknas ut vilka
+   bildrutor den ligger i (i en böjd form en per varv och sida om axeln), snitten hittas där
+   tiden eller läget i bilden passerar sina nivåer, och formens yta där strålen går in och ut.
+   `src/volume.js` räknar samma form åt andra hållet för konturer och kamerans inpassning.
 3. Det skarpa tidssnittet samplas från en `VideoTexture` i full upplösning, inte från volymen.
    Rörelseläget jämför två närliggande lager i volymen per sampling.
 4. `src/recorder.js` spelar in canvasen med `MediaRecorder` och lägger till ljudet från
