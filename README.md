@@ -303,7 +303,8 @@ inte, och en kod som blivit fel avvisas i stället för att ge ett halvt resulta
 slår ut allt), och **↶** bredvid tar tillbaka det om du ångrar dig. Antal bildrutor och
 upplösning behålls, eftersom de kräver en ombyggnad. ✕ i ett avsnitts rubrik återställer
 bara det avsnittet.
-Avsnitten i panelen är hopfällda från start; klicka på rubriken för att öppna ett.
+Avsnitten i panelen är hopfällda från start; klicka på rubriken för att öppna ett. Bara ett
+avsnitt är öppet åt gången — öppnar du ett fälls det förra ihop.
 Dubbelklick på ett enskilt reglage återställer bara det. Mellanslag spelar/pausar.
 Inställningarna sparas i webbläsaren till nästa gång.
 

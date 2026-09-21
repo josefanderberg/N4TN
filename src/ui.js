@@ -337,6 +337,15 @@ export function buildPanel(root, sections, params, defaults, onChange, random = 
       }
     }
     details.append(body);
+    // Bara ett avsnitt öppet åt gången: öppnas ett fälls det förra ihop. Rubriken
+    // hålls kvar i bild, eftersom avsnittet ovanför kan ha krympt under den.
+    details.addEventListener('toggle', () => {
+      if (!details.open) return;
+      for (const other of root.querySelectorAll(':scope > details.sec[open]')) {
+        if (other !== details) other.open = false;
+      }
+      summary.scrollIntoView({ block: 'nearest' });
+    });
     root.append(details);
   }
 
