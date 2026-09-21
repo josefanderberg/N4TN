@@ -44,7 +44,7 @@ i toppraden slumpar fram en ny look av de reglage som får slumpas — se gruppe
 
 | Grupp | Vad det gör |
 | --- | --- |
-| **Volym** | Sammanhanget: lådan som klippet byggs in i. Antal bildrutor och upplösning i 3D-texturen — fria tal, skriv vad du vill (2–512 bildrutor, 32–720 px). Raden under visar vad valet kostar i minne och om volymen är byggd med just de värdena. Ändring kräver **Bygg om volym**, som går att trycka på så fort ett klipp är laddat — även med oförändrade värden, för att göra om ett bygge som blev fel eller avbröts. Djupet är ett reglage upp till 5; **Utöka djupet…** öppnar ett fritt fält där du skriver vad du vill upp till 200. **Storlek fram/bak** gör lådan till en tratt: olika storlek på ändarna får innehållet att växa eller krympa genom flödet. Längst ner lådans egna kanter — kantlinjer och kantglöd — samt den vikbara gruppen **Ytor och glas** med glasreflexen och en yta per sida (fram, bak, vänster, höger, tak, botten) och bakgrundsfärgen. |
+| **Volym** | Sammanhanget: lådan som klippet byggs in i. Antal bildrutor och upplösning i 3D-texturen — fria tal, skriv vad du vill (2–512 bildrutor, 32–720 px). Raden under visar vad valet kostar i minne och om volymen är byggd med just de värdena. Ändring kräver **Bygg om volym**, som går att trycka på så fort ett klipp är laddat — även med oförändrade värden, för att göra om ett bygge som blev fel eller avbröts. Djupet är ett reglage upp till 5; **Utöka djupet…** öppnar ett fritt fält där du skriver vad du vill upp till 200. **Storlek fram/bak** gör lådan till en tratt: olika storlek på ändarna får innehållet att växa eller krympa genom flödet. Tre brytare — **Kanter**, **Spegelglans** och **Ytor** — släcker kantlinjerna och kantglöden, glasreflexen respektive alla sex sidorna på en gång, utan att röra reglagens värden. Därunder lådans egna kanter — kantlinjer och kantglöd — samt den vikbara gruppen **Ytor och glas** med glasreflexen och en yta per sida (fram, bak, vänster, höger, tak, botten) och bakgrundsfärgen. |
 | **Form och tid** | Tiden som form i rummet. **Form** böjer klippet runt en axel (cylinder, donut, boll, spiral), rundar och vrider det; **Bana** låter bildrutorna slingra åt sidorna och upp och ner och snurra; **Tid** låter tiden gå fram och tillbaka eller hoppa i bitar över hela klippet. |
 | **Utseende** | Helheten inne i lådan: innehåll (bild/rörelse), material (rök, vätska, krom, gelé), bakgrundsborttagning med tröskel, blandning, densitet, rörelsedimma, exponeringsbotten och -tak (fönstret däremellan dras ut till full skala — bildrutan som spelas och de fulla ögonblicken behåller sitt ljus), ljusstyrka, mättnad, färg efter tid, renderingskvalitet och sist toningen vid klippets ändar. |
 | **Partiklar** | Gör om tidskuben till partiklar som kan slungas ut, falla med gravitation, studsa mot en behållare, virvla och dras tillbaka till bilden. |
@@ -53,7 +53,7 @@ i toppraden slumpar fram en ny look av de reglage som får slumpas — se gruppe
 | **AI-djup (5D)** | En AI-modell skattar djupet i bildrutorna direkt i webbläsaren, och **Relief** låter ögonblicken bukta mot betraktaren där det är nära. |
 | **Kamera** | Följ ögonblicket, fri musstyrning, pendel eller rotation, hastighet och brännvidd. |
 | **Export** | Bildformat (1:1, 4:5, 9:16, 16:9), bildfrekvens, kvalitet, antal varv och om ljudet ska med. |
-| **Slumpa** | Tärningen 🎲 i toppraden slumpar looken. **Välj vad som får slumpas** visar en tärning intill varje reglage: tänd = får slumpas, släckt = fredas. Bygget och exporten rörs aldrig; kamera, rum och de tyngsta valen är släckta från början. Varje avsnitt har också en egen 🎲 i rubriken som slumpar bara det avsnittet, och under flikarna finns en knapp som slumpar bara fliken du står på (t.ex. **🎲 Slumpa Bana**). De rör även det som är släckt från början, men aldrig det du själv har släckt eller huvudbrytarna för partiklar, stereogram och bakgrundsborttagning. **↶ Ångra** i toppraden tar tillbaka en slumpning i taget. |
+| **Slumpa** | Tärningen 🎲 i toppraden slumpar looken — allt utom Form och tid, bakgrundsfärgen och brytarna för kanter, glans och ytor. **Välj vad som får slumpas** visar en tärning intill varje reglage: tänd = får slumpas, släckt = fredas. Bygget och exporten rörs aldrig; kamera och de tyngsta valen är släckta från början. Varje avsnitt har dessutom tre knappar i rubriken: 🎲 slumpar bara det avsnittet, ✕ återställer det till standard och ↶ ångrar det senaste som gjordes i avsnittet. Under flikarna finns 🎲 och ✕ för bara fliken du står på (t.ex. **🎲 Slumpa Bana**). Avsnittens tärningar rör även det som är släckt från början, men aldrig det du själv har släckt eller huvudbrytarna för partiklar, stereogram och bakgrundsborttagning. ↶ i toppraden ångrar det senaste, var det än gjordes, ett steg i taget. |
 | **Sparade inställningar** | Längst ner: namngivna uppsättningar av alla reglage — spara, hämta tillbaka, ta bort — samt en kort kod för att dela eller flytta en uppsättning. |
 
 ### Formen
@@ -299,8 +299,10 @@ runt 20–30 tecken. Den är okänslig för stora och små bokstäver, och mella
 får du sätta hur du vill när du skriver av den. Tecken som lätt förväxlas (I, L, O, U) används
 inte, och en kod som blivit fel avvisas i stället för att ge ett halvt resultat.
 
-**Återställ** uppe till höger nollställer alla reglage (två klick, så att en felklickning inte
-slår ut allt). Antal bildrutor och upplösning behålls, eftersom de kräver en ombyggnad.
+**✕** uppe till höger nollställer alla reglage (två klick, så att en felklickning inte
+slår ut allt), och **↶** bredvid tar tillbaka det om du ångrar dig. Antal bildrutor och
+upplösning behålls, eftersom de kräver en ombyggnad. ✕ i ett avsnitts rubrik återställer
+bara det avsnittet.
 Avsnitten i panelen är hopfällda från start; klicka på rubriken för att öppna ett.
 Dubbelklick på ett enskilt reglage återställer bara det. Mellanslag spelar/pausar.
 Inställningarna sparas i webbläsaren till nästa gång.

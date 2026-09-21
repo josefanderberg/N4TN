@@ -261,41 +261,56 @@ export function buildPanel(root, sections, params, defaults, onChange, random = 
   }
 
   const isVisible = (item) => (item.visible ? item.visible(params) : true);
-  const headerDice = [];
+  const headerActions = [];
 
-  // Tärningen i avsnittets rubrik slumpar hela avsnittet. Den sitter i rubriken
-  // och har avsnittets färg, så det syns vad den hör till.
-  function sectionDice(section, summary) {
-    if (!random?.randomize || !section.items.some((i) => i.key && random.sectionEligible(i.key))) return;
-    const button = el('button', {
-      type: 'button',
-      class: 'sec-rand',
-      title: `Slumpa allt i ${section.title}`,
-      'aria-label': `Slumpa allt i ${section.title}`,
-    }, '🎲');
+  function actionButton(cls, text, label, onClick) {
+    const button = el('button', { type: 'button', class: cls, title: label, 'aria-label': label }, text);
     button.addEventListener('click', (e) => {
-      // Knappen sitter i rubriken; utan detta skulle klicket även fälla ihop avsnittet.
+      // Knapparna sitter i rubriken; utan detta skulle klicket även fälla ihop avsnittet.
       e.preventDefault();
       e.stopPropagation();
-      random.randomize(section.items);
+      onClick();
     });
-    summary.append(button);
-    headerDice.push(button);
+    return button;
   }
 
-  // Under en flikrad: en knapp som bara slumpar fliken som är vald, alltså de
-  // reglage i avsnittet som syns just nu. Den heter efter fliken.
-  function tabDice(section, item) {
+  // Avsnittets egna knappar i rubriken: slumpa, återställ till standard och
+  // ångra. De har avsnittets färg, så det syns vad de hör till. Ångra syns bara
+  // när det finns något i avsnittet att ångra.
+  function sectionActions(section, summary) {
+    if (!random?.randomize) return;
+    const { items, title } = section;
+    const entry = { items, title, dice: null, reset: null, undo: null };
+    if (items.some((i) => i.key && random.sectionEligible(i.key))) {
+      entry.dice = actionButton('sec-btn', '🎲', `Slumpa allt i ${title}`, () => random.randomize(items, title));
+    }
+    if (items.some((i) => i.key && random.resettable(i.key))) {
+      entry.reset = actionButton('sec-btn', '✕', `Återställ ${title} till standard`, () => random.reset(items, title));
+    }
+    entry.undo = actionButton('sec-btn', '↶', `Ångra senaste slumpningen eller återställningen i ${title}`,
+      () => random.undo(title));
+    summary.append(...[entry.dice, entry.reset, entry.undo].filter(Boolean));
+    headerActions.push(entry);
+  }
+
+  // Under en flikrad: slumpa och återställ bara fliken som är vald, alltså de
+  // reglage i avsnittet som syns just nu. Slumpknappen heter efter fliken.
+  function tabActions(section, item) {
     if (!random?.randomize || item.random === false) return null;
-    const button = el('button', { type: 'button', class: 'tab-rand' });
+    const tabItems = () => section.items.filter((i) => i !== item && isVisible(i));
     const activeLabel = () => item.tabs.find(([value]) => value === item.get())?.[1] ?? '';
-    button.addEventListener('click', () => {
-      random.randomize(section.items.filter((i) => i !== item && isVisible(i)));
-    });
-    const row = el('div', { class: 'row row-tabrand' }, button);
-    bindings.push({ item: { visible: item.visible }, row, sync: () => {
-      button.textContent = `🎲 Slumpa ${activeLabel()}`;
-      button.title = `Slumpa reglagen under fliken ${activeLabel()}`;
+    const dice = el('button', { type: 'button', class: 'tab-btn' });
+    dice.addEventListener('click', () => random.randomize(tabItems(), section.title));
+    const reset = el('button', { type: 'button', class: 'tab-btn' }, '✕');
+    reset.addEventListener('click', () => random.reset(tabItems(), section.title));
+    const row = el('div', { class: 'row row-tabrand' }, dice, reset);
+    bindings.push({ item: { visible: item.visible }, row, sync: (disabled) => {
+      const name = activeLabel();
+      dice.textContent = `🎲 Slumpa ${name}`;
+      dice.title = `Slumpa reglagen under fliken ${name}`;
+      reset.title = `Återställ reglagen under fliken ${name} till standard`;
+      reset.setAttribute('aria-label', reset.title);
+      reset.disabled = disabled || !random.canReset(tabItems());
     } });
     return row;
   }
@@ -305,7 +320,7 @@ export function buildPanel(root, sections, params, defaults, onChange, random = 
     const details = el('details', { class: 'sec', open: section.open === true });
     if (section.accent) details.style.setProperty('--sec-accent', section.accent);
     const summary = el('summary', {}, el('span', { class: 'sec-title' }, section.title));
-    sectionDice(section, summary);
+    sectionActions(section, summary);
     details.append(summary);
     const body = el('div', { class: 'sec-body' });
     if (section.hint) body.append(el('p', { class: 'sec-hint' }, section.hint));
@@ -317,8 +332,8 @@ export function buildPanel(root, sections, params, defaults, onChange, random = 
       attachInfo(row, item);
       body.append(row);
       if (item.type === 'tabs') {
-        const dice = tabDice(section, item);
-        if (dice) body.append(dice);
+        const actions = tabActions(section, item);
+        if (actions) body.append(actions);
       }
     }
     details.append(body);
@@ -339,7 +354,12 @@ export function buildPanel(root, sections, params, defaults, onChange, random = 
       // Sist, så att egna kontroller kan styra sitt eget läge utan att skrivas över.
       b.sync(disabled);
     }
-    for (const button of headerDice) button.disabled = locked;
+    for (const a of headerActions) {
+      if (a.dice) a.dice.disabled = locked;
+      if (a.reset) a.reset.disabled = locked || !random.canReset(a.items);
+      a.undo.hidden = !random.canUndo(a.title);
+      a.undo.disabled = locked;
+    }
     const picking = !!random?.picking();
     for (const { key, button } of randButtons) {
       button.hidden = !picking;

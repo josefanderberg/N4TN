@@ -61,6 +61,7 @@ const BASE = {
   particles: false, particlesVolume: false, particleCount: 65536, particleSize: 1, particleForce: 3,
   particleAuto: 0, gravity: false, gravityStrength: 6, particleBounce: 0.5, particleHome: 1,
   particleSwirl: 0, particleContainer: 1.6, particleBox: true,
+  showEdges: true, showGlass: true, showShells: true,
 };
 
 // Ordningen bestämmer varje fälts nummer i koden. Lägg bara till nya fält sist.
@@ -189,6 +190,9 @@ const FIELDS = [
   ['particleSwirl', 'f1', 0, 4, 0.05],
   ['particleContainer', 'f1', 1, 4, 0.05],
   ['particleBox', 'b'],
+  ['showEdges', 'b'],
+  ['showGlass', 'b'],
+  ['showShells', 'b'],
 ];
 
 // Crockford base32: inga tecken som går att blanda ihop (I, L, O, U saknas),

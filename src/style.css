@@ -754,38 +754,46 @@ input[type='range']:disabled {
   }
 }
 
-/* Tärningen i ett avsnitts rubrik slumpar bara det avsnittet; ramen i
-   avsnittets färg visar vad den hör till. */
-.sec-rand {
+/* Avsnittets egna knappar i rubriken (slumpa, återställ, ångra); ramen i
+   avsnittets färg visar vad de hör till. */
+.sec-btn {
   appearance: none;
   flex: none;
-  padding: 2px 7px;
+  min-width: 26px;
+  padding: 2px 6px;
   border: 1px solid color-mix(in srgb, var(--sec-accent) 50%, transparent);
   border-radius: 6px;
   background: transparent;
+  color: var(--text-dim);
   font-size: 12px;
   line-height: 1.2;
   cursor: pointer;
-  opacity: 0.7;
+  opacity: 0.75;
 }
 
-.sec-rand:hover:not(:disabled) {
+.sec-btn + .sec-btn {
+  margin-left: -5px;
+}
+
+.sec-btn:hover:not(:disabled) {
   opacity: 1;
+  color: var(--text);
   background: color-mix(in srgb, var(--sec-accent) 18%, transparent);
 }
 
-.sec-rand:disabled {
-  opacity: 0.3;
+.sec-btn:disabled {
+  opacity: 0.25;
   cursor: default;
 }
 
-/* Under flikarna: slumpar bara fliken som är vald, och heter efter den. */
+/* Under flikarna: slumpa och återställ bara fliken som är vald. */
 .row-tabrand {
   display: flex;
   justify-content: flex-end;
+  gap: 4px;
 }
 
-.tab-rand {
+.tab-btn {
   appearance: none;
   padding: 3px 9px;
   border: 1px solid color-mix(in srgb, var(--sec-accent) 50%, transparent);
@@ -796,12 +804,12 @@ input[type='range']:disabled {
   cursor: pointer;
 }
 
-.tab-rand:hover:not(:disabled) {
+.tab-btn:hover:not(:disabled) {
   color: var(--text);
   background: color-mix(in srgb, var(--sec-accent) 18%, transparent);
 }
 
-.tab-rand:disabled {
-  opacity: 0.4;
+.tab-btn:disabled {
+  opacity: 0.35;
   cursor: default;
 }

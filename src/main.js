@@ -51,6 +51,10 @@ const DEFAULTS = {
   glass: 1,
   edgeGlow: 0.6,
   lines: 0.3,
+  // Brytare som släcker kanterna, spegelglansen och ytorna utan att röra reglagen.
+  showEdges: true,
+  showGlass: true,
+  showShells: true,
   depth: 1.3,
   flipTime: false,
   steps: 200,
@@ -153,18 +157,18 @@ const DEMO_DURATION = 6;
 // lådan aldrig slumpas till att se tom eller stillastående ut.
 const RANDOM_EXCLUDED = new Set([
   'frames', 'size', 'format', 'fps', 'bitrate', 'audio', 'loops', 'depthFrames', 'particleCount',
+  // Rummet är svart, och vad lådan visar av kanter, glans och ytor väljer man själv.
+  'background', 'showEdges', 'showGlass', 'showShells',
   'timeOn', 'timeFollow', 'timeLoop',
 ]);
 // Släckta från början: kameran, rummet och de tunga eller omvälvande valen.
 // Tänds med tärningen intill reglaget när väljarläget är på.
 const RANDOM_DEFAULT_OFF = new Set([
-  'motion', 'motionSpeed', 'fov', 'followSlice', 'background', 'speed',
+  'motion', 'motionSpeed', 'fov', 'followSlice', 'speed',
   'flipTime', 'steps', 'depth', 'bgRemove',
   'stereo', 'stereoMode', 'stereoAngle',
-  // Formen, materialet och partiklarna byter ut hela scenen, inte bara looken.
-  'bend', 'bendCenter', 'bendAxis', 'bendPitch', 'formRound', 'formTwist',
-  'warpAmount', 'warpRate', 'warpVariation', 'warpSpeed', 'jumpAmount', 'jumpLength',
-  'pathX', 'pathY', 'pathSpin', 'pathSoft', 'pathSpeed',
+  // Materialet och partiklarna byter ut hela scenen, inte bara looken. (Form och
+  // tid rörs inte alls av den stora tärningen, se randomizeParams.)
   'material', 'liquidLevel', 'liquidSoft', 'liquidGloss', 'liquidClarity',
   'particles', 'particlesVolume', 'particleSize', 'particleForce', 'particleAuto', 'gravity',
   'gravityStrength', 'particleBounce', 'particleHome', 'particleSwirl', 'particleContainer',
@@ -634,6 +638,17 @@ function tick(timestamp) {
   state.pathClock += dt * params.pathSpeed;
 
   Object.assign(frameParams, params);
+  // Brytarna släcker det de styr utan att röra reglagens värden.
+  if (!params.showEdges) {
+    frameParams.lines = 0;
+    frameParams.edgeGlow = 0;
+  }
+  if (!params.showGlass) frameParams.glass = 0;
+  if (!params.showShells) {
+    for (const key of ['shellFront', 'shellBack', 'shellLeft', 'shellRight', 'shellTop', 'shellBottom']) {
+      frameParams[key] = 0;
+    }
+  }
   frameParams.warpPhase = state.warpClock * Math.PI * 2;
   frameParams.pathPhase = state.pathClock * Math.PI * 2;
   frameParams.jumpPieces = jumpPieces();
@@ -1472,33 +1487,43 @@ const sections = [
       { type: 'range', key: 'sizeBack', label: 'Storlek bak', min: 0.2, max: 2, step: 0.01,
         info: 'Baksidans storlek. Det är förhållandet mellan fram och bak som syns; lådan kramar alltid den större änden.' },
       // Lådans egna kanter och rummet runt den hör ihop med lådan, inte med bilden.
+      // Tre brytare för det lådan visar runt innehållet. De släcker allt på en
+      // gång men lämnar reglagen orörda, så att allt kommer tillbaka när de slås på.
+      { type: 'checkbox', key: 'showEdges', label: 'Kanter',
+        info: 'Slår av och på trådramen, konturerna och kantglöden på en gång.' },
+      { type: 'checkbox', key: 'showGlass', label: 'Spegelglans',
+        info: 'Slår av och på glasreflexen som får ytorna att skifta när kameran rör sig.' },
+      { type: 'checkbox', key: 'showShells', label: 'Ytor',
+        info: 'Slår av och på lådans alla sex sidor på en gång. Styrkan per sida finns under Ytor och glas.' },
       { type: 'range', key: 'lines', label: 'Kantlinjer', min: 0, max: 1, step: 0.01,
+        disabled: (p) => !p.showEdges,
         info: 'Trådramen runt lådan och konturerna kring ögonblicken.' },
       { type: 'range', key: 'edgeGlow', label: 'Kantglöd', min: 0, max: 2, step: 0.01,
+        disabled: (p) => !p.showEdges,
         info: 'Ljusskimret längs lådans kanter.' },
       // Ytorna och glaset: en yta per sida, hopfällda för att inte ta över panelen.
       { type: 'fold', label: 'Ytor och glas',
         get: () => ui.shellsOpen, set: (value) => { ui.shellsOpen = value; } },
       { type: 'range', key: 'glass', label: 'Glasreflex', min: 0, max: 2, step: 0.01, pane: true,
-        visible: () => ui.shellsOpen,
+        visible: () => ui.shellsOpen, disabled: (p) => !p.showGlass,
         info: 'Reflexen som får lådans ytor att skifta som glas när kameran rör sig.' },
       { type: 'range', key: 'shellFront', label: 'Yta fram', min: 0, max: 1, step: 0.01, pane: true,
-        visible: () => ui.shellsOpen,
+        visible: () => ui.shellsOpen, disabled: (p) => !p.showShells,
         info: 'Framsidan — kortsidan där klippet börjar (eller slutar med vänd tidsriktning).' },
       { type: 'range', key: 'shellBack', label: 'Yta bak', min: 0, max: 1, step: 0.01, pane: true,
-        visible: () => ui.shellsOpen,
+        visible: () => ui.shellsOpen, disabled: (p) => !p.showShells,
         info: 'Baksidan — den bortre kortsidan av tiden.' },
       { type: 'range', key: 'shellLeft', label: 'Yta vänster', min: 0, max: 1, step: 0.01, pane: true,
-        visible: () => ui.shellsOpen,
+        visible: () => ui.shellsOpen, disabled: (p) => !p.showShells,
         info: 'Vänstra väggen: bildens vänsterkant utsmetad över tid.' },
       { type: 'range', key: 'shellRight', label: 'Yta höger', min: 0, max: 1, step: 0.01, pane: true,
-        visible: () => ui.shellsOpen,
+        visible: () => ui.shellsOpen, disabled: (p) => !p.showShells,
         info: 'Högra väggen: bildens högerkant utsmetad över tid.' },
       { type: 'range', key: 'shellTop', label: 'Yta tak', min: 0, max: 1, step: 0.01, pane: true,
-        visible: () => ui.shellsOpen,
+        visible: () => ui.shellsOpen, disabled: (p) => !p.showShells,
         info: 'Taket: bildens överkant utsmetad över tid.' },
       { type: 'range', key: 'shellBottom', label: 'Yta botten', min: 0, max: 1, step: 0.01, pane: true,
-        visible: () => ui.shellsOpen,
+        visible: () => ui.shellsOpen, disabled: (p) => !p.showShells,
         info: 'Botten: bildens underkant utsmetad över tid.' },
       { type: 'color', key: 'background', label: 'Bakgrund',
         info: 'Färgen på rummet runt lådan.' },
@@ -1507,6 +1532,8 @@ const sections = [
   {
     title: 'Form och tid',
     accent: '#5fe0b0',
+    // Har egna tärningar i rubriken och under flikarna; den stora rör den inte.
+    topRandom: false,
     hint: 'Tiden som form i rummet: böj klippet i en cirkel, låt det slingra, och låt tiden gå fram och tillbaka.',
     items: [
       { type: 'tabs',
@@ -1952,12 +1979,12 @@ const sections = [
   {
     title: 'Slumpa',
     accent: '#ffe066',
-    hint: 'Tärningen i toppraden slumpar looken. Tärningen i varje avsnittsrubrik slumpar bara det avsnittet, och knappen under flikarna bara fliken du står på. Ångra i toppraden tar tillbaka en slumpning i taget.',
+    hint: 'Tärningen i toppraden slumpar looken (utom Form och tid). Varje avsnitt har egna knappar i rubriken: 🎲 slumpar avsnittet, ✕ återställer det till standard och ↶ ångrar. Under flikarna finns samma sak för bara fliken du står på. ↶ i toppraden ångrar det senaste, var det än gjordes.',
     items: [
       { type: 'buttons', buttons: [
         { label: '🎲 Slumpa nu', action: () => randomizeParams() },
       ], disabled: () => state.exporting,
-        info: 'Slumpar alla reglage som har tärningen tänd — samma som tärningen i toppraden. Bygget (bildrutor och upplösning) och exporten rörs aldrig, och djupledens tre kryss (visa ögonblicken, följ uppspelningen, loopa) står alltid på efteråt.' },
+        info: 'Slumpar alla reglage som har tärningen tänd — samma som tärningen i toppraden. Bygget (bildrutor och upplösning), exporten och Form och tid rörs aldrig, och djupledens tre kryss (visa ögonblicken, följ uppspelningen, loopa) står alltid på efteråt.' },
       { type: 'checkbox', label: 'Välj vad som får slumpas',
         get: () => ui.randomPick, set: (value) => { ui.randomPick = value; },
         info: 'Visar en tärning intill varje reglage i hela panelen. Tänd tärning = reglaget får slumpas, släckt = det fredas. Valet sparas i webbläsaren. Kamera, rum och de tyngsta valen är släckta från början för den stora tärningen; avsnittens och flikarnas egna tärningar rör dem ändå, men aldrig det du själv har släckt.' },
@@ -1995,7 +2022,7 @@ function randomValue(item) {
 
 // Slumpar reglagen i listan som får slumpas, och sparar först deras värden så
 // att slumpningen går att ångra. forced skrivs efter slumpen och ångras också.
-function randomizeItems(items, eligible, forced = {}) {
+function randomizeItems(items, eligible, forced = {}, section = null) {
   if (state.exporting) return;
   const picked = new Map();
   for (const item of items) {
@@ -2006,64 +2033,88 @@ function randomizeItems(items, eligible, forced = {}) {
   }
   const keys = [...picked.keys(), ...Object.keys(forced)];
   if (!keys.length) return;
-  rememberForUndo(keys);
+  rememberForUndo(keys, section);
   for (const [key, value] of picked) params[key] = value;
   Object.assign(params, forced);
   onParamChange('*');
 }
 
 function randomizeParams() {
-  // Djupledens tre kryss står alltid på efter en slumpning: ögonblicken
-  // synliga, uppspelningen följd och loopen igång.
+  // Avsnitt med topRandom: false (Form och tid) har sina egna tärningar och
+  // rörs inte av den stora. Djupledens tre kryss står alltid på efter en
+  // slumpning: ögonblicken synliga, uppspelningen följd och loopen igång.
   randomizeItems(
-    sections.flatMap((section) => section.items),
+    sections.filter((section) => section.topRandom !== false).flatMap((section) => section.items),
     (key) => !RANDOM_EXCLUDED.has(key) && randomOn(key),
     { timeOn: true, timeFollow: true, timeLoop: true },
   );
 }
 
 // Avsnittens och flikarnas egna tärningar. De rör även det som är släckt från
-// början (annars skulle t.ex. Form och tid inte gå att slumpa alls), men aldrig
-// det man själv har släckt i väljarläget, och inte huvudbrytarna som slår av
-// och på en hel funktion.
+// början för den stora tärningen, men aldrig det man själv har släckt i
+// väljarläget, och inte huvudbrytarna som slår av och på en hel funktion.
 const RANDOM_SECTION_KEEP = new Set(['particles', 'particlesVolume', 'stereo', 'bgRemove']);
 const sectionEligible = (key) =>
   !RANDOM_EXCLUDED.has(key) && !RANDOM_SECTION_KEEP.has(key) && randomPicks[key] !== false;
 
-function randomizeSection(items) {
-  randomizeItems(items, sectionEligible);
+// Återställningen rör allt utom bygget, som annars kräver en ny volym.
+const RESET_KEEP = new Set(['frames', 'size']);
+const resettable = (key) => key in DEFAULTS && !RESET_KEEP.has(key);
+
+// Reglagen i listan som inte står på sitt standardvärde.
+function changedKeys(items) {
+  const keys = new Set();
+  for (const item of items) {
+    const key = item.key;
+    if (key && resettable(key) && params[key] !== DEFAULTS[key]) keys.add(key);
+  }
+  return [...keys];
 }
 
-// Slumpningarna ångras ett steg i taget med Ångra i toppraden. Varje steg är
-// värdena som slumpningen skrev över, så det man ändrat för hand efteråt i
-// andra reglage står kvar.
-const randomHistory = [];
+// Ett avsnitt (eller en flik) tillbaka till standard. Går att ångra som en slumpning.
+function resetItems(items, section = null) {
+  if (state.exporting) return;
+  const keys = changedKeys(items);
+  if (!keys.length) return;
+  rememberForUndo(keys, section);
+  for (const key of keys) params[key] = DEFAULTS[key];
+  onParamChange('*');
+}
+
+// Slumpningar och återställningar ångras ett steg i taget: ↶ i toppraden tar
+// det senaste var det än gjordes, ↶ i ett avsnitts rubrik det senaste i just
+// det avsnittet. Varje steg är bara värdena som ändrades, så det man ändrat för
+// hand efteråt i andra reglage står kvar.
+const undoHistory = [];
 const undoBtn = $('undo-btn');
 
-function rememberForUndo(keys) {
-  randomHistory.push(Object.fromEntries(keys.map((key) => [key, params[key]])));
-  if (randomHistory.length > 30) randomHistory.shift();
+function rememberForUndo(keys, section = null) {
+  undoHistory.push({ section, values: Object.fromEntries(keys.map((key) => [key, params[key]])) });
+  if (undoHistory.length > 50) undoHistory.shift();
   updateUndoButton();
 }
 
-function undoRandom() {
-  const saved = randomHistory.pop();
-  if (saved) {
-    Object.assign(params, saved);
-    onParamChange('*');
-  }
+function undoStep(section = null) {
+  let index = undoHistory.length - 1;
+  if (section) while (index >= 0 && undoHistory[index].section !== section) index--;
+  if (index < 0) return;
+  const [step] = undoHistory.splice(index, 1);
+  Object.assign(params, step.values);
   updateUndoButton();
+  onParamChange('*');
 }
+
+const canUndo = (section) => undoHistory.some((step) => step.section === section);
 
 function updateUndoButton() {
-  undoBtn.hidden = !randomHistory.length;
-  undoBtn.title = `Ångra senaste slumpningen (${randomHistory.length} kvar att ångra)`;
+  undoBtn.hidden = !undoHistory.length;
+  undoBtn.title = `Ångra senaste slumpningen eller återställningen (${undoHistory.length} steg att ångra)`;
 }
 
-// När allt byts ut (en kod, en sparad uppsättning eller Återställ) finns inget
-// kvar att ångra tillbaka till.
+// När allt byts ut mot något annat (en kod eller en sparad uppsättning) finns
+// inget kvar att ångra tillbaka till.
 function forgetUndo() {
-  randomHistory.length = 0;
+  undoHistory.length = 0;
   updateUndoButton();
   formUndo.forget();
   hologramUndo.forget();
@@ -2135,11 +2186,16 @@ const panel = buildPanel($('panel'), sections, params, DEFAULTS, onParamChange, 
   get: randomOn,
   set: setRandomOn,
   sectionEligible,
-  randomize: randomizeSection,
+  resettable,
+  randomize: (items, section) => randomizeItems(items, sectionEligible, {}, section),
+  reset: resetItems,
+  canReset: (items) => changedKeys(items).length > 0,
+  undo: undoStep,
+  canUndo,
 });
 
 $('random-btn').addEventListener('click', randomizeParams);
-undoBtn.addEventListener('click', undoRandom);
+undoBtn.addEventListener('click', () => undoStep());
 
 // Återställningen kräver två klick, så att inte en felklickning slår ut alla inställningar.
 const resetBtn = $('reset-btn');
@@ -2147,7 +2203,7 @@ let resetTimer = 0;
 function armReset(armed) {
   clearTimeout(resetTimer);
   resetBtn.classList.toggle('is-armed', armed);
-  resetBtn.textContent = armed ? 'Säker?' : 'Återställ';
+  resetBtn.textContent = armed ? 'Säker?' : '✕';
   if (armed) resetTimer = setTimeout(() => armReset(false), 3000);
 }
 resetBtn.addEventListener('click', () => {
@@ -2157,10 +2213,10 @@ resetBtn.addEventListener('click', () => {
   }
   armReset(false);
   // Antal bildrutor och upplösning behålls, annars måste volymen byggas om.
-  const keep = { frames: params.frames, size: params.size };
-  Object.assign(params, DEFAULTS, keep);
-  forgetUndo();
-  onParamChange('*');
+  // Återställningen går att ångra med ↶, precis som en slumpning.
+  formUndo.forget();
+  hologramUndo.forget();
+  resetItems(Object.keys(DEFAULTS).map((key) => ({ key })));
 });
 volume.setDepth(params.depth);
 applyMute();
